@@ -1,25 +1,35 @@
 
 from inspect import Signature, Parameter
-
-def make_signature(fields):
-    return Signature(Parameter(name, Parameter.POSITIONAL_OR_KEYWORD) for name in fields)
-
 from collections import OrderedDict
+import re
+
+IP_RE = re.compile(
+    '^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$')
+
 
 class Descriptor:
+    value = None
+
     def __init__(self, name=None):
         self.name = name
-    
+
     def __set__(self, instance, value):
         print("set", value)
-        instance.__dict__[self.name]=value
-        
+        self.value = value
+        # instance.__dict__[self.name]
+        # instance.__dict__[self.name]=value
+
+    def __get__(self, _, type=None):
+        return self.value
+
     def __delete__(self, instance):
         print("del", self.name)
-        del instance.__dict__[self.name]
-        
+        self.value = None
+
+
 class Field(Descriptor):
     ty = ""
+
     def __set__(self, instance, value):
         return super().__set__(instance, value)
 
@@ -28,12 +38,14 @@ class Field(Descriptor):
         """Return sql statement for create table."""
         return '{0} {1}'.format(self.name, self.ty)
 
+
 class Integer(Field):
     ty = 'INTEGER'
 
     def _format(self, data):
         """sql query format of data"""
-        return str(int(data))     
+        return str(int(data))
+
 
 class String(Field):
     ty = 'TEXT'
@@ -42,11 +54,14 @@ class String(Field):
         """sql query format of data"""
         return "'{0}'".format(str(data))
 
+
 class Float(Field):
     ty = 'DOUBLE'
+
     def _format(self, data):
         """sql query format of data"""
-        return str(float(data))  
+        return str(float(data))
+
 
 class Char(Field):
     ty = 'CHAR'
@@ -55,6 +70,7 @@ class Char(Field):
         """sql query format of data"""
         return "'{0}'".format(str(data))
 
+
 class Varchar(Field):
     ty = 'VARCHAR'
 
@@ -62,9 +78,10 @@ class Varchar(Field):
         """sql query format of data"""
         return "'{0}'".format(str(data))
 
+
 class Datetime(Field):
     ty = 'DATETIME'
-    
+
     def _format(self, data):
         """sql query format of data"""
         return "'{0}'".format(str(data))
@@ -75,14 +92,22 @@ class Datetime(Field):
     def __str__(self, data, format='%Y-%m-%d %H:%M:%S.%f'):
         return data.strftime(format)
 
+
 class Date(Field):
     ty = 'DATETIME'
-    
+
     def _format(self, data):
         return "'{0}'".format(str(data))
-    
+
     def __str__(self, data, format='%Y-%m-%d'):
         return data.strftime(format)
+
+
+class Ip(Char):
+    def _format(self, data):
+        assert IP_RE.match(data), 'Be sure you were given a valid IP address'
+        return super(IP, self)._format(data)
+
 
 class PrimaryKey(Integer):
 
@@ -90,12 +115,13 @@ class PrimaryKey(Integer):
     def _sql(self):
         return '{0} {1} NOT NULL PRIMARY KEY'.format(self.name, self.ty)
 
+
 class ForeignKey(Integer):
 
     def __init__(self, to_table):
         self.to_table = to_table
         super(ForeignKey, self).__init__()
-    
+
     @property
     def _sql(self):
         return '{column_name} {column_type} NOT NULL REFERENCES {tablename} ({to_column})'.format(
@@ -117,37 +143,50 @@ class model_meta(type):
     @classmethod
     def __prepare__(cls, name, bases):
         return OrderedDict()
-    
+
     def __new__(cls, clsname, bases, clsdict):
-        fields = {key:val for key, val in clsdict.items() 
-                  if isinstance(val, Field)}
-        for name in fields:
-            clsdict[name].name = name
-            
+
+        if '_id' not in clsdict:
+            clsdict['_id'] = PrimaryKey()
+
+        fields = OrderedDict([(key, val) for key, val in clsdict.items()
+                              if isinstance(val, Field)])
+
         clsobj = super().__new__(cls, clsname, bases, dict(clsdict))
-        sign = make_signature(list(fields.keys()))
+        sign = make_signature(fields)
         setattr(clsobj, "__signature__", sign)
         setattr(clsobj, '__fields__', fields)
         return clsobj
 
-class Model(metaclass=model_meta):
 
+def make_signature(fields):
+    return Signature(Parameter(name, Parameter.POSITIONAL_OR_KEYWORD) for name in fields)
+
+
+class Node(metaclass=model_meta):
     def __init__(self, *args, **kwargs):
-        bound = self.__signature__.bind(*args, *kwargs)
+        bound = self.__signature__.bind(*args, **kwargs)
         for key, value in bound.arguments.items():
             setattr(self, key, value)
 
-    def get(cls, **kwargs):
-        return SelectQuery(cls).where(**kwargs).first()
 
-    def select(self, *args, nodes=[]):
-        return SelectQuery(model=self, nodes=nodes)
+class Model(metaclass=model_meta):
+    def __init__(self, *args, **kwargs):
+        bound = self.__signature__.bind(*args, **kwargs)
+        for key, value in bound.arguments.items():
+            setattr(self, key, value)
+
+    def get(self, **kwargs):
+        return SelectQuery(self).where(**kwargs).first()
+
+    def select(self, *args, **kwargs):
+        return SelectQuery(*args, model=self ** kwargs)
 
     def update(self, *args, **kwargs):
-        return UpdateQuery(self, *args, **kwargs)
+        return UpdateQuery(*args, model=self, **kwargs)
 
-    def delete(cls, *args, **kwargs):
-        return DeleteQuery(cls, *args, **kwargs)
+    def delete(self, *args, **kwargs):
+        return DeleteQuery(*args, model=self, **kwargs)
 
     def __str__(self):
         return str(vars(self))
@@ -159,14 +198,15 @@ class Model(metaclass=model_meta):
         try:
             cursor = db.execute(sql)
             if isinstance(cursor, str):
+                                                            # database conf name
                 print("Could not add to the {}. {}".format(db.database, cursor))
             else:
                 self.id = cursor.lastrowid
-        
+
         except OperationalError as ox:
             print("Table not found in " + db.conf['name'])
             raise ox
-            
+
         finally:
             db.commit()
 
@@ -179,7 +219,7 @@ class Model(metaclass=model_meta):
 
         for field_name, field_model in self.__fields__.items():
             if hasattr(self, field_name) and not isinstance(getattr(self, field_name), Field):
-                values.append(field_model.sql_format(
+                values.append(field_model._format(
                     getattr(self, field_name)))
                 columns.append(field_name)
 
@@ -188,5 +228,4 @@ class Model(metaclass=model_meta):
             columns=', '.join(columns),
             items=', '.join(values)
         )
-        
         self._insert(db, sql)
