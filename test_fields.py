@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import models
 
@@ -11,10 +11,167 @@ class DescriptorTestCase(unittest.TestCase):
         self.assertTrue(hasattr(d, 'name'))
         self.assertEqual(d.name, 'test')
 
-
 class FieldTestCase(unittest.TestCase):
-    """ Test base field here """
-    pass
+    """Base field object"""
+
+    def setUp(self):
+        self.test_field = models.Field('COLUMN_TYPE')
+
+    def test__sql(self):
+        """Return sql statement for create table."""
+
+        self.test_field.name = 'COLUMN_NAME'
+        self.test_field.ty = "COLUMN_TYPE"
+
+        self.assertEqual("COLUMN_NAME COLUMN_TYPE()",
+                         self.test_field._sql)
+
+
+class IntegerTestCase(unittest.TestCase):
+    """SQLite Integer field"""
+
+    def setUp(self):
+        self.test_int_field = models.Integer()
+
+    def test_column_type(self):
+        self.assertEqual('INTEGER', self.test_int_field.ty)
+
+    def test__format(self):
+        """sql query format of data"""
+        self.assertIsInstance(self.test_int_field._format(20), str)
+
+class FloatTestCase(unittest.TestCase):
+    """SQLite Float field"""
+
+    def setUp(self):
+        self.test_int_field = models.Float()
+
+    def test_column_type(self):
+        self.assertEqual('DOUBLE', self.test_int_field.ty)
+
+    def test__format(self):
+        """sql query format of data"""
+        self.assertIsInstance(self.test_int_field._format(20.6), str)
+
+class CharTestCase(unittest.TestCase):
+    """SQLite Char field"""
+
+    def setUp(self):
+        self.test_char_field = models.Char()
+
+    def test__sql(self):
+        self.test_char_field.name = 'test'
+        self.assertEqual('test CHAR()', self.test_char_field._sql)
+
+    def test__format(self):
+        self.assertEqual("'test'", self.test_char_field._format("test"))
+
+
+class VarcharTestCase(unittest.TestCase):
+    """SQLite Varchar field"""
+
+    def setUp(self):
+        self.test_char_field = models.Varchar()
+
+    def test__sql(self):
+        self.test_char_field.name = 'test'
+        self.assertEqual('test VARCHAR()',
+                         self.test_char_field._sql)
+
+    def test__format(self):
+        self.assertEqual("'test'", self.test_char_field._format("test"))
+        """
+        def test_char_max_length_cannot_be_exceeded(self):
+        try:
+            self.test_char_field._format("test_ex")
+        except Exception as e:
+            self.assertEqual('maximum length exceeded', e.args[0])
+        """
+
+class StringTestCase(unittest.TestCase):
+    """SQLite Text field"""
+
+    def test__format(self):
+        """sql query format of data"""
+        self.assertEqual("'test'", models.String()._format('test'))
+
+
+class DatetimeTestCase(unittest.TestCase):
+
+    def setUp(self):
+        self.test_Datetime = models.Datetime()
+
+    def test__format(self):
+        """sql query format of data"""
+        from datetime import datetime
+        self.assertEqual("'2017-07-07 00:00:00'",
+                         self.test_Datetime._format(datetime(2017, 7, 7, 0, 0, 0)))
+
+
+class DateTestCase(unittest.TestCase):
+    def setUp(self):
+        self.test_date = models.Date()
+
+    def test__format(self):
+        """sql query format of data"""
+        from datetime import date
+        self.assertEqual(
+            "'2017-07-07'", self.test_date._format(date(2017, 7, 7)))
+
+class TimestampTestCase(unittest.TestCase):
+
+    def setUp(self):
+        self.test_timestamp = models.Datetime()
+
+    def test__format(self):
+        """sql query format of data"""
+        from datetime import datetime
+        self.assertEqual("'2017-07-07 00:00:00'",
+                         self.test_timestamp._format(datetime(2017, 7, 7, 0, 0, 0)))
+
+
+class PrimaryKeyTestCase(unittest.TestCase):
+
+    def test__sql(self):
+        test_pk = models.PrimaryKey()
+        test_pk.name = 'test'  # models sets it
+        self.assertEqual('test INTEGER NOT NULL PRIMARY KEY',
+                         test_pk._sql)
+
+
+class ForeignKeyTestCase(unittest.TestCase):
+
+    def setUp(self):
+        self.to_table = models.Model(_id=1)
+        self.to_table.__tablename__ = 'test_table'
+        self.test_fk = models.ForeignKey(self.to_table)
+        self.test_fk.name = 'test_fk'
+
+    def test__sql(self):
+        self.assertEqual(
+            'test_fk INTEGER NOT NULL REFERENCES test_table (_id)', self.test_fk._sql)
+
+    def test__format(self):
+        """sql query format of data"""
+        self.assertEqual("1", self.test_fk._format(self.to_table))
+
+
+class ManyToManyTestCase(unittest.TestCase):
+    """ """
+    
+    def setUp(self):
+        self.model = MagicMock()
+    
+    def test_many_to_many_creation(self):
+        """ 1- initialize manytomany with stub model
+            2- check manytomany has a to_model attribute
+        """
+        model = self.model
+        manytomany = models.ManyToMany(model)
+        
+        self.assertTrue(hasattr(manytomany, 'to_model'))
+
+
 
 if __name__ == '__main__':
     unittest.main()

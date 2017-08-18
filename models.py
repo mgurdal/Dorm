@@ -2,6 +2,7 @@
 from inspect import Signature, Parameter
 from collections import OrderedDict
 import re
+from queries import *
 
 IP_RE = re.compile(
     '^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$')
@@ -36,7 +37,7 @@ class Field(Descriptor):
     @property
     def _sql(self):
         """Return sql statement for create table."""
-        return '{0} {1}'.format(self.name, self.ty)
+        return '{0} {1}()'.format(self.name, self.ty)
 
 
 class Integer(Field):
@@ -127,14 +128,14 @@ class ForeignKey(Integer):
         return '{column_name} {column_type} NOT NULL REFERENCES {tablename} ({to_column})'.format(
             column_name=self.name,
             column_type=self.ty,
-            tablename=self.to_table.__name__,
+            tablename=self.to_table.__tablename__,
             to_column='_id'
         )
 
     def _format(self, data):
         """sql query format of data"""
         if isinstance(data, Model):
-            return str(data.id)  # find the pk
+            return str(data._id)  # find the pk
         else:
             return super(ForeignKey, self)._format(data)
 
@@ -145,6 +146,8 @@ class model_meta(type):
         return OrderedDict()
 
     def __new__(cls, clsname, bases, clsdict):
+        
+        
 
         if '_id' not in clsdict:
             clsdict['_id'] = PrimaryKey()
@@ -177,10 +180,10 @@ class Model(metaclass=model_meta):
             setattr(self, key, value)
 
     def get(self, **kwargs):
-        return SelectQuery(self).where(**kwargs).first()
+        return SelectQuery(model=self).where(**kwargs).first()
 
     def select(self, *args, **kwargs):
-        return SelectQuery(*args, model=self ** kwargs)
+        return SelectQuery(*args, model=self, **kwargs)
 
     def update(self, *args, **kwargs):
         return UpdateQuery(*args, model=self, **kwargs)

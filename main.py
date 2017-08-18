@@ -2,12 +2,14 @@ import models
 from datetime import datetime
 
 
-
-class Node(models.Node):
+class Driver(models.Node):
     ip = models.Ip()
     port = models.Integer()
-    driver = models.Integer()
-
+    name = models.Char()
+    user = models.Char()
+    password = models.Char()
+    type_ = models.Char()
+    
 
 class User(models.Model):
     name = models.String()
