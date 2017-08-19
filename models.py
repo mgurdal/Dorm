@@ -1,11 +1,25 @@
+"""
+Define models here.
+"""
 
+
+import re
 from inspect import Signature, Parameter
 from collections import OrderedDict
-import re
+from pprint import pprint
+
 from queries import *
 
-IP_RE = re.compile(
-    '^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$')
+
+"""
+Define fields here
+"""
+
+
+IP_RE = re.compile(r'^(([0-9]|[1-9][0-9]|1[0-9]{2}|\
+    2[0-4][0-9]|25[0-5])\.)\
+    {3}([0-9]|[1-9][0-9]|\
+    1[0-9]{2}|2[0-4][0-9]|25[0-5])$')
 
 
 class Descriptor:
@@ -140,14 +154,41 @@ class ForeignKey(Integer):
             return super(ForeignKey, self)._format(data)
 
 
+class ManyToMany(object):
+    """ Many to Many relation field """
+
+    def __init__(self, to_model=None):
+        self.to_model = to_model
+
+    def create_mm_model(self, field_name, from_model, node=None):
+        mm_table_name = "MM_{}_{}".format(
+            self.to_model.__name__,
+            from_model.__name__)
+
+        # find primary keys
+        from_model_pk = (k for k, f in from_model.__fields__.items()
+                         if isinstance(f, PrimaryKey))
+        to_model_pk = (k for k, f in self.to_model.__fields__.items()
+                         if isinstance(f, PrimaryKey))
+        
+        # merge class attrs
+        foreign_fields = {
+            '_id': PrimaryKey(),
+            from_model.__name__+'_id': ForeignKey(from_model.__class__),
+            self.to_model.__name__+'_id': ForeignKey(self.to_model.__class__)
+        }
+        mm_model = type(mm_table_name, (Model,), foreign_fields)
+
+        return mm_model
+
+
+
 class model_meta(type):
     @classmethod
     def __prepare__(cls, name, bases):
         return OrderedDict()
 
     def __new__(cls, clsname, bases, clsdict):
-        
-        
 
         if '_id' not in clsdict:
             clsdict['_id'] = PrimaryKey()

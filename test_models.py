@@ -12,7 +12,7 @@ class ModelTestCase(unittest.TestCase):
             pass
 
         setattr(self, 'Model', Model)
-        self.model = Model()
+        self.model = Model(_id=0)
 
     def test_model_create_in_success(self):
         model = self.model
@@ -38,9 +38,8 @@ class ModelTestCase(unittest.TestCase):
         model._insert = MagicMock()
 
         model.save(db)
-        model._insert.assert_called_with(db, 'insert into Model() values();')
+        model._insert.assert_called_with(db, 'insert into Model(_id) values(0);')
         # test with fields too
-
 
 if __name__ == '__main__':
     unittest.main()

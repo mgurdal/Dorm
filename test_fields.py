@@ -1,7 +1,8 @@
 import unittest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import models
+
 
 class DescriptorTestCase(unittest.TestCase):
     """ test base descriptor """
@@ -10,6 +11,7 @@ class DescriptorTestCase(unittest.TestCase):
         d = models.Descriptor('test')
         self.assertTrue(hasattr(d, 'name'))
         self.assertEqual(d.name, 'test')
+
 
 class FieldTestCase(unittest.TestCase):
     """Base field object"""
@@ -40,6 +42,7 @@ class IntegerTestCase(unittest.TestCase):
         """sql query format of data"""
         self.assertIsInstance(self.test_int_field._format(20), str)
 
+
 class FloatTestCase(unittest.TestCase):
     """SQLite Float field"""
 
@@ -52,6 +55,7 @@ class FloatTestCase(unittest.TestCase):
     def test__format(self):
         """sql query format of data"""
         self.assertIsInstance(self.test_int_field._format(20.6), str)
+
 
 class CharTestCase(unittest.TestCase):
     """SQLite Char field"""
@@ -88,6 +92,7 @@ class VarcharTestCase(unittest.TestCase):
             self.assertEqual('maximum length exceeded', e.args[0])
         """
 
+
 class StringTestCase(unittest.TestCase):
     """SQLite Text field"""
 
@@ -117,6 +122,7 @@ class DateTestCase(unittest.TestCase):
         from datetime import date
         self.assertEqual(
             "'2017-07-07'", self.test_date._format(date(2017, 7, 7)))
+
 
 class TimestampTestCase(unittest.TestCase):
 
@@ -158,20 +164,41 @@ class ForeignKeyTestCase(unittest.TestCase):
 
 class ManyToManyTestCase(unittest.TestCase):
     """ """
-    
-    def setUp(self):
-        self.model = MagicMock()
-    
-    def test_many_to_many_creation(self):
+
+    @patch('models.Model')
+    def test_many_to_many_creation(self, Model):
         """ 1- initialize manytomany with stub model
             2- check manytomany has a to_model attribute
         """
-        model = self.model
+        model = Model()
         manytomany = models.ManyToMany(model)
-        
+
         self.assertTrue(hasattr(manytomany, 'to_model'))
+    
+    @patch('models.Node')
+    def test_create_relation(self, Node):
+        n = Node()
+        to_model = MagicMock()
+        to_model.__name__ = 'ToModel'
+        to_model.__fields__ = {'_id':models.PrimaryKey()}
+    
+        from_model = MagicMock()
+        from_model.__name__ = 'FromModel'
+        from_model.__fields__ = {'_id':models.PrimaryKey()}
+        
+        manytomany = models.ManyToMany(to_model)
 
+        mm_model = manytomany.create_mm_model('referance_name', from_model, node=n)
 
+        self.assertEqual(mm_model.mro()[1], models.Model)
+        self.assertEqual(mm_model.__name__, "MM_ToModel_FromModel")
+        self.assertTrue(hasattr(mm_model, 'FromModel_id'))
+        self.assertTrue(hasattr(mm_model, 'ToModel_id'))
+        
+        self.assertTrue(type(mm_model.FromModel_id), models.ForeignKey)
+        self.assertTrue(type(mm_model.ToModel_id), models.ForeignKey)
+        
+        # check if bound tables same with given tables
 
 if __name__ == '__main__':
     unittest.main()
