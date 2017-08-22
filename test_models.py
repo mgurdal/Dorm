@@ -38,8 +38,30 @@ class ModelTestCase(unittest.TestCase):
         model._insert = MagicMock()
 
         model.save(db)
-        model._insert.assert_called_with(db, 'insert into Model(_id) values(0);')
+        model._insert.assert_called_with(
+            db, 'insert into Model(_id) values(0);')
         # test with fields too
+
+    @patch('drivers.Sqlite')
+    def test_save_with_sqlite(self, Sqlite):
+        """ write the other cases """
+
+        model = self.model
+
+        db = Sqlite()
+        model._insert = MagicMock()
+
+        model.save(db)
+        model._insert.assert_called_with(
+            db, 'insert into Model(_id) values(0);')
+        # test with fields too
+
+class BaseNodeTestCase(unittest.TestCase):
+    """ test base descriptor """
+
+    def test_base_node_creation(self):
+        node = models.BaseNode()
+        self.assertTrue(hasattr(node, '_id'))
 
 if __name__ == '__main__':
     unittest.main()

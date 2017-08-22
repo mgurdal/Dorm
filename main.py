@@ -2,7 +2,7 @@ import models
 from datetime import datetime
 
 
-class Driver(models.Node):
+class Node(models.BaseNode):
     ip = models.Ip()
     port = models.Integer()
     name = models.Char()

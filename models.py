@@ -197,6 +197,7 @@ class model_meta(type):
                               if isinstance(val, Field)])
 
         clsobj = super().__new__(cls, clsname, bases, dict(clsdict))
+        
         sign = make_signature(fields)
         setattr(clsobj, "__signature__", sign)
         setattr(clsobj, '__fields__', fields)
@@ -207,15 +208,26 @@ def make_signature(fields):
     return Signature(Parameter(name, Parameter.POSITIONAL_OR_KEYWORD) for name in fields)
 
 
-class Node(metaclass=model_meta):
+class BaseNode(metaclass=model_meta):
     def __init__(self, *args, **kwargs):
+        if '_id' not in kwargs:
+            # auto incremented
+            kwargs.update({'_id':id(self)})
         bound = self.__signature__.bind(*args, **kwargs)
         for key, value in bound.arguments.items():
             setattr(self, key, value)
 
+class Node(BaseNode):
+
+    def connect(self):
+        pass
 
 class Model(metaclass=model_meta):
     def __init__(self, *args, **kwargs):
+        if '_id' not in kwargs:
+            # auto incremented
+            kwargs.update({'_id':id(self)})
+
         bound = self.__signature__.bind(*args, **kwargs)
         for key, value in bound.arguments.items():
             setattr(self, key, value)
@@ -245,7 +257,7 @@ class Model(metaclass=model_meta):
                                                             # database conf name
                 print("Could not add to the {}. {}".format(db.database, cursor))
             else:
-                self.id = cursor.lastrowid
+                self._id = cursor.lastrowid
 
         except OperationalError as ox:
             print("Table not found in " + db.conf['name'])
