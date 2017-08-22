@@ -48,10 +48,9 @@ class Field(Descriptor):
     def __set__(self, instance, value):
         return super().__set__(instance, value)
 
-    @property
-    def _sql(self):
+    def _sql(self, name):
         """Return sql statement for create table."""
-        return '{0} {1}()'.format(self.name, self.ty)
+        return '{0} {1}()'.format(name, self.ty)
 
 
 class Integer(Field):
@@ -126,9 +125,8 @@ class Ip(Char):
 
 class PrimaryKey(Integer):
 
-    @property
-    def _sql(self):
-        return '{0} {1} NOT NULL PRIMARY KEY'.format(self.name, self.ty)
+    def _sql(self, name):
+        return '{0} {1} NOT NULL PRIMARY KEY'.format(name, self.ty)
 
 
 class ForeignKey(Integer):
@@ -137,10 +135,9 @@ class ForeignKey(Integer):
         self.to_table = to_table
         super(ForeignKey, self).__init__()
 
-    @property
-    def _sql(self):
+    def _sql(self, name):
         return '{column_name} {column_type} NOT NULL REFERENCES {tablename} ({to_column})'.format(
-            column_name=self.name,
+            column_name=name,
             column_type=self.ty,
             tablename=self.to_table.__tablename__,
             to_column='_id'
@@ -170,7 +167,7 @@ class ManyToMany(object):
                          if isinstance(f, PrimaryKey))
         to_model_pk = (k for k, f in self.to_model.__fields__.items()
                          if isinstance(f, PrimaryKey))
-        
+
         # merge class attrs
         foreign_fields = {
             '_id': PrimaryKey(),
@@ -197,7 +194,7 @@ class model_meta(type):
                               if isinstance(val, Field)])
 
         clsobj = super().__new__(cls, clsname, bases, dict(clsdict))
-        
+
         sign = make_signature(fields)
         setattr(clsobj, "__signature__", sign)
         setattr(clsobj, '__fields__', fields)

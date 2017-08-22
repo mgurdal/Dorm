@@ -22,11 +22,10 @@ class FieldTestCase(unittest.TestCase):
     def test__sql(self):
         """Return sql statement for create table."""
 
-        self.test_field.name = 'COLUMN_NAME'
         self.test_field.ty = "COLUMN_TYPE"
 
-        self.assertEqual("COLUMN_NAME COLUMN_TYPE()",
-                         self.test_field._sql)
+        self.assertEqual("test COLUMN_TYPE()",
+                         self.test_field._sql('test'))
 
 
 class IntegerTestCase(unittest.TestCase):
@@ -64,8 +63,7 @@ class CharTestCase(unittest.TestCase):
         self.test_char_field = models.Char()
 
     def test__sql(self):
-        self.test_char_field.name = 'test'
-        self.assertEqual('test CHAR()', self.test_char_field._sql)
+        self.assertEqual('test CHAR()', self.test_char_field._sql('test'))
 
     def test__format(self):
         self.assertEqual("'test'", self.test_char_field._format("test"))
@@ -78,9 +76,8 @@ class VarcharTestCase(unittest.TestCase):
         self.test_char_field = models.Varchar()
 
     def test__sql(self):
-        self.test_char_field.name = 'test'
         self.assertEqual('test VARCHAR()',
-                         self.test_char_field._sql)
+                         self.test_char_field._sql('test'))
 
     def test__format(self):
         self.assertEqual("'test'", self.test_char_field._format("test"))
@@ -140,9 +137,8 @@ class PrimaryKeyTestCase(unittest.TestCase):
 
     def test__sql(self):
         test_pk = models.PrimaryKey()
-        test_pk.name = 'test'  # models sets it
         self.assertEqual('test INTEGER NOT NULL PRIMARY KEY',
-                         test_pk._sql)
+                         test_pk._sql('test'))
 
 
 class ForeignKeyTestCase(unittest.TestCase):
@@ -155,7 +151,7 @@ class ForeignKeyTestCase(unittest.TestCase):
 
     def test__sql(self):
         self.assertEqual(
-            'test_fk INTEGER NOT NULL REFERENCES test_table (_id)', self.test_fk._sql)
+            'test_fk INTEGER NOT NULL REFERENCES test_table (_id)', self.test_fk._sql('test_fk'))
 
     def test__format(self):
         """sql query format of data"""
@@ -174,18 +170,18 @@ class ManyToManyTestCase(unittest.TestCase):
         manytomany = models.ManyToMany(model)
 
         self.assertTrue(hasattr(manytomany, 'to_model'))
-    
+
     @patch('models.Node')
     def test_create_relation(self, Node):
         n = Node()
         to_model = MagicMock()
         to_model.__name__ = 'ToModel'
         to_model.__fields__ = {'_id':models.PrimaryKey()}
-    
+
         from_model = MagicMock()
         from_model.__name__ = 'FromModel'
         from_model.__fields__ = {'_id':models.PrimaryKey()}
-        
+
         manytomany = models.ManyToMany(to_model)
 
         mm_model = manytomany.create_mm_model('referance_name', from_model, node=n)
@@ -194,10 +190,10 @@ class ManyToManyTestCase(unittest.TestCase):
         self.assertEqual(mm_model.__name__, "MM_ToModel_FromModel")
         self.assertTrue(hasattr(mm_model, 'FromModel_id'))
         self.assertTrue(hasattr(mm_model, 'ToModel_id'))
-        
+
         self.assertTrue(type(mm_model.FromModel_id), models.ForeignKey)
         self.assertTrue(type(mm_model.ToModel_id), models.ForeignKey)
-        
+
         # check if bound tables same with given tables
 
 if __name__ == '__main__':
