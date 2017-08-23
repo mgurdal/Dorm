@@ -50,7 +50,11 @@ class Field(Descriptor):
 
     def _sql(self, name):
         """Return sql statement for create table."""
-        return '{0} {1}()'.format(name, self.ty)
+        return '{0} {1}'.format(name, self.ty)
+
+    @classmethod
+    def from_dict(cls, clsdict):
+        return cls(name=clsdict['name'])
 
 
 class Integer(Field):
@@ -98,9 +102,6 @@ class Datetime(Field):
 
     def _format(self, data):
         """sql query format of data"""
-        return "'{0}'".format(str(data))
-
-    def _format(self, data):
         return "'{0}'".format(str(data))
 
     def __str__(self, data, format='%Y-%m-%d %H:%M:%S.%f'):
@@ -178,7 +179,15 @@ class ManyToMany(object):
 
         return mm_model
 
-
+field_map = {
+    'INTEGER': Integer,
+    'DOUBLE': Float,
+    'CHAR': Char,
+    'VARCHAR': Varchar,
+    'FOREIGN': ForeignKey,
+    'DATE': Date,
+    'DATETIME': Datetime
+}
 
 class model_meta(type):
     @classmethod
@@ -248,20 +257,10 @@ class Model(metaclass=model_meta):
         return str(vars(self))
 
     def _insert(self, db, sql):
-        try:
-            cursor = db.execute(sql)
-            if isinstance(cursor, str):
-                                                            # database conf name
-                print("Could not add to the {}. {}".format(db.database, cursor))
-            else:
-                self._id = cursor.lastrowid
 
-        except OperationalError as ox:
-            print("Table not found in " + db.conf['name'])
-            raise ox
-
-        finally:
-            db.commit()
+        cursor = db.execute(sql)
+        assert cursor, "Could not add to the database"
+        db.commit()
 
         # refered fields
 

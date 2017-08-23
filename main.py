@@ -20,8 +20,17 @@ class Node(models.BaseNode):
         # check if supported
         self.driver = driver
 
-    def models(self):
-        pass
+    def collect_models(self):
+        assert hasattr(self, 'driver'), 'Node does not have a driver'
+        return self.driver.discover()
+
+    def save_model(self, model):
+        assert hasattr(self, 'driver'), 'Node does not have a driver'
+        self.driver.create_table(model)
+
+    def add_model(self, model):
+        assert hasattr(self, 'driver'), 'Node does not have a driver'
+        model.save(self.driver)
 
 class User(models.Model):
     name = models.String()
@@ -35,4 +44,3 @@ if __name__ == '__main__':
     n = Node(ip="0.0.0.0", port=0, name='mysqlite', user='sky', password='123', type_='sqlite')
     u = User(_id=1, name="mehmet", email="mgurdal@protonmail.com", age=23, passwd=123, pub=datetime.now())
     sq = Sqlite(name='hello.db')
-    

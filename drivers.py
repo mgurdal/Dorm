@@ -1,5 +1,6 @@
 import sqlite3
 from models import ManyToMany
+from parse import parse
 
 class BaseDriver(object):
     def __init__(self, conn):
@@ -44,6 +45,7 @@ class BaseDriver(object):
         self.conn.close()
 
     def execute(self, sql, commit=False):
+        print("EXECUTING:", sql)
         cursor = self.conn.cursor()
         if not cursor:
             print("Invalid sql", sql)
@@ -62,3 +64,48 @@ class Sqlite(BaseDriver):
                                     detect_types=sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES
                                     )
         super(Sqlite, self).__init__(conn=self.conn)
+
+    def discover(self):
+        """ Creates model structure from database tables """
+
+        table_list = []
+        q = "SELECT sql FROM sqlite_master;"
+        tables = self.execute(q).fetchall()
+        for table in tables:
+            if table[0] == None:
+                continue
+
+            table_parser = parse(
+                'CREATE TABLE {table_name} ({columns})', table[0])
+            fs = table_parser.named['columns'].split(', ')
+            columns = []
+            for field in fs:
+                field_parser = parse('{name} {type} {rest}', field) or parse(
+                    '{name} {type}', field)
+                if field_parser is not None:
+                    field_parser.named['extras'] = {}
+                    field_parser.named['extras']['pk'] = False
+                    field_parser.named['extras']['fk'] = False
+                    # if column does not have argument. e.g CHAR(15)
+                    if field_parser.named['type'][-1] == r")":
+                        field_parser.named['extras']['size']=field_parser.named['type'][field_parser.named['type'].rfind("(")+1:-1]
+                        field_parser.named['type'] = field_parser.named['type'][:field_parser.named['type'].rfind("(")]
+                    if 'rest' in field_parser.named.keys():
+                        if 'NOT NULL' in field_parser.named['rest']:
+                            field_parser.named['extras']['not_null'] = True
+
+                        if 'PRIMARY KEY' in field:
+                            field_parser.named['extras']['pk'] = True
+
+                        if 'REFERENCES' in field_parser.named['rest']:
+                            field_parser.named['extras']['fk'] = True
+                            table_str = field.split(" REFERENCES ")[1]
+                            related_table = parse(
+                                "{related_table} ({related_field})", table_str).named
+                            field_parser.named['extras'].update(related_table)
+                        del field_parser.named['rest']
+                    columns.append(field_parser.named)
+
+            table_parser.named['columns'] = columns
+            table_list.append(table_parser.named)
+        return table_list
