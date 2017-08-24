@@ -24,8 +24,17 @@ class FieldTestCase(unittest.TestCase):
 
         self.test_field.ty = "COLUMN_TYPE"
 
-        self.assertEqual("test COLUMN_TYPE()",
+        self.assertEqual("test COLUMN_TYPE",
                          self.test_field._sql('test'))
+
+    def test_from_dict(self):
+        field_d = {'fk': False, 'name': 'test', 'pk': False, 'type': 'TEXT'}
+        field = models.Field.from_dict(field_d)
+
+        self.assertTrue(isinstance(field, models.Field))
+        self.assertEqual(type(field), models.String)
+        self.assertTrue(hasattr(field, 'name'))
+        self.assertEqual(field.name, 'test')
 
 
 class IntegerTestCase(unittest.TestCase):
@@ -63,7 +72,7 @@ class CharTestCase(unittest.TestCase):
         self.test_char_field = models.Char()
 
     def test__sql(self):
-        self.assertEqual('test CHAR()', self.test_char_field._sql('test'))
+        self.assertEqual('test CHAR', self.test_char_field._sql('test'))
 
     def test__format(self):
         self.assertEqual("'test'", self.test_char_field._format("test"))
@@ -76,7 +85,7 @@ class VarcharTestCase(unittest.TestCase):
         self.test_char_field = models.Varchar()
 
     def test__sql(self):
-        self.assertEqual('test VARCHAR()',
+        self.assertEqual('test VARCHAR',
                          self.test_char_field._sql('test'))
 
     def test__format(self):
