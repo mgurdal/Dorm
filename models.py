@@ -16,11 +16,12 @@ Define fields here
 """
 
 
-IP_RE = re.compile(r'^(([0-9]|[1-9][0-9]|1[0-9]{2}|\
+IP_RE = re.compile(
+    r'^(([0-9]|[1-9][0-9]|1[0-9]{2}|\
     2[0-4][0-9]|25[0-5])\.)\
     {3}([0-9]|[1-9][0-9]|\
-    1[0-9]{2}|2[0-4][0-9]|25[0-5])$')
-
+    1[0-9]{2}|2[0-4][0-9]|25[0-5])$'
+    )
 
 class Descriptor:
     value = None
@@ -53,9 +54,17 @@ class Field(Descriptor):
         return '{0} {1}'.format(name, self.ty)
 
     @classmethod
-    def from_dict(cls, clsdict):
-        return cls(name=clsdict['name'])
-
+    def from_dict(cls, kwargs):
+        {'fk': False, 'name': '_id',
+        'null': False, 'pk': True, 'type': 'INTEGER'}
+        if kwargs['pk'] is True:
+            field_cls = PrimaryKey()
+            field_cls.name = kwargs['name']
+            return field_cls
+        else:
+            field_cls = FIELD_MAP[kwargs['type']]()
+            field_cls.name = kwargs['name']
+            return field_cls
 
 class Integer(Field):
     ty = 'INTEGER'
@@ -126,7 +135,7 @@ class Ip(Char):
 
 class PrimaryKey(Integer):
 
-    def _sql(self, name):
+    def _sql(self, name, null=False):
         return '{0} {1} NOT NULL PRIMARY KEY'.format(name, self.ty)
 
 
@@ -179,11 +188,12 @@ class ManyToMany(object):
 
         return mm_model
 
-field_map = {
+FIELD_MAP = {
     'INTEGER': Integer,
     'DOUBLE': Float,
     'CHAR': Char,
     'VARCHAR': Varchar,
+    'TEXT': String,
     'FOREIGN': ForeignKey,
     'DATE': Date,
     'DATETIME': Datetime

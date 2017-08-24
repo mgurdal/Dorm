@@ -22,7 +22,12 @@ class Node(models.BaseNode):
 
     def collect_models(self):
         assert hasattr(self, 'driver'), 'Node does not have a driver'
-        return self.driver.discover()
+        model_structures = self.driver.discover()
+        ms = []
+        for model_s in model_structures:
+            fs = [models.Field.from_dict(x) for x in model_s['columns']]
+            ms.append(type(model_s['table_name'], (models.Model,), {f.name:f for f in fs}))
+        return ms
 
     def save_model(self, model):
         assert hasattr(self, 'driver'), 'Node does not have a driver'

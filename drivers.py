@@ -83,26 +83,25 @@ class Sqlite(BaseDriver):
                 field_parser = parse('{name} {type} {rest}', field) or parse(
                     '{name} {type}', field)
                 if field_parser is not None:
-                    field_parser.named['extras'] = {}
-                    field_parser.named['extras']['pk'] = False
-                    field_parser.named['extras']['fk'] = False
+                    field_parser.named['pk'] = False
+                    field_parser.named['fk'] = False
                     # if column does not have argument. e.g CHAR(15)
                     if field_parser.named['type'][-1] == r")":
-                        field_parser.named['extras']['size']=field_parser.named['type'][field_parser.named['type'].rfind("(")+1:-1]
+                        field_parser.named['size']=field_parser.named['type'][field_parser.named['type'].rfind("(")+1:-1]
                         field_parser.named['type'] = field_parser.named['type'][:field_parser.named['type'].rfind("(")]
                     if 'rest' in field_parser.named.keys():
                         if 'NOT NULL' in field_parser.named['rest']:
-                            field_parser.named['extras']['not_null'] = True
+                            field_parser.named['null'] = False
 
                         if 'PRIMARY KEY' in field:
-                            field_parser.named['extras']['pk'] = True
+                            field_parser.named['pk'] = True
 
                         if 'REFERENCES' in field_parser.named['rest']:
-                            field_parser.named['extras']['fk'] = True
+                            field_parser.named['fk'] = True
                             table_str = field.split(" REFERENCES ")[1]
                             related_table = parse(
                                 "{related_table} ({related_field})", table_str).named
-                            field_parser.named['extras'].update(related_table)
+                            field_parser.named['related_table'].update(related_table)
                         del field_parser.named['rest']
                     columns.append(field_parser.named)
 
