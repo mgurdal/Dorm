@@ -30,7 +30,6 @@ class Descriptor:
         self.name = name
 
     def __set__(self, instance, value):
-        print("set", value)
         self.value = value
         # instance.__dict__[self.name]
         # instance.__dict__[self.name]=value
@@ -261,10 +260,10 @@ class Model(metaclass=model_meta):
         return DeleteQuery(*args, model=self, **kwargs)
 
     def __str__(self):
-        return str(vars(self))
+        return "{} : {}".format(self.__class__.__name__, self.__signature__)
 
     def __repr__(self):
-        return str(vars(self))
+        return "{} : {}".format(self.__class__.__name__, self.__signature__)
 
     def _insert(self, db, sql):
 

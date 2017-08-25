@@ -14,7 +14,7 @@ class SelectQuery(object):
         #self.model = model
         self.model = model.__class__
         self.base_sql = 'select {columns} from {tablename};'
-        
+
         query_args = args if args else ['*']
         self.query = ', '.join([str(column) for column in query_args])
 

@@ -45,7 +45,6 @@ class BaseDriver(object):
         self.conn.close()
 
     def execute(self, sql, commit=False):
-        print("EXECUTING:", sql)
         cursor = self.conn.cursor()
         if not cursor:
             print("Invalid sql", sql)
