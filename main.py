@@ -67,29 +67,50 @@ class Node(models.BaseNode):
             columns=', '.join(columns),
             batch=",".join(map(lambda x:"({})".format(x), value_batch))
         )
-        print(sql)
         cursor = self.driver.execute(sql)
 
         # validate that its really added to database
         assert cursor, "Could not add to database"
         self.driver.commit()
 
+class DORM(object):
+    """
+        n1 = Node(ip="0.0.0.0", port=0, name='mysqlite', user='sky', password='123', type_='sqlite')
+        sq1 = Sqlite(name='test-2.3.sqlite')
+        n1.bind(sq1)
 
-class Job(models.Model):
-    name = models.String()
+        n2 = Node(ip="0.0.0.0", port=0, name='mysqlite2', user='sky', password='123', type_='sqlite')
+        sq2 = Sqlite(name='test-network-2.3.sqlite')
+        n2.bind(sq2)
 
-class User(models.Model):
-    name = models.String()
-    email = models.String()
-    job = models.ForeignKey(Job)
 
-if __name__ == '__main__':
-    from drivers import Sqlite
-    n1 = Node(ip="0.0.0.0", port=0, name='mysqlite', user='sky', password='123', type_='sqlite')
-    n2 = Node(ip="0.0.0.0", port=0, name='mysqlite', user='sky', password='123', type_='sqlite')
-    sq1 = Sqlite(name='hello.db')
-    sq2 = Sqlite(name='hello2.db')
-    n1.bind(sq1)
-    n2.bind(sq2)
-    n1.add(User, Job)
-    n1.collect_models()
+        n3 = Node(ip="0.0.0.0", port=0, name='mysqlite2', user='sky', password='123', type_='sqlite')
+        sq3 = Sqlite(name='chinook.db')
+        n3.bind(sq3)
+    """
+    def initialize_nodes(self):
+        pass
+
+    def add_node(self, n):
+        pass
+
+    def add_model(self, m):
+        pass
+
+    def find(self, q):
+        pass
+
+    def get(self, q):
+        pass
+
+    def health_check(self):
+        pass
+
+    def replication_check(self):
+        pass
+
+    def clone_node(self, from_node, to_node):
+        pass
+
+    def clone_model(self, model, from_node, to_node):
+        pass

@@ -90,7 +90,7 @@ class Sqlite(BaseDriver):
         """
 
         table_list = []
-        q = "SELECT sql FROM sqlite_master;"
+        q = "SELECT m.sql FROM sqlite_master as m where m.sql like 'CREATE TABLE %'"
         tables = self.execute(q).fetchall()
         for table in tables:
 
@@ -102,6 +102,7 @@ class Sqlite(BaseDriver):
                 'CREATE TABLE {table_name} ({columns})', table[0])
             if not table_parser:
                 continue
+
             fs = table_parser.named['columns'].split(',')
             fs = [c.strip() for c in fs]
             columns = []
@@ -141,9 +142,6 @@ class Sqlite(BaseDriver):
 
             table_parser.named['columns'] = columns
             table_list.append(table_parser.named)
-        print("***"*20)
-        pprint(table_list)
-        print("***"*20)
         return table_list
 
 
@@ -155,57 +153,4 @@ class Postgres(BaseDriver):
 
     def discover(self):
         """ Creates model structure from database tables """
-
-        table_list = []
-        q = "SELECT sql FROM sqlite_master;"
-        tables = self.execute(q).fetchall()
-        for table in tables:
-
-            if table[0] == None:
-                continue
-            if "CREATE TABLE" not in table[0]:
-                continue
-            table_parser = parse(
-                'CREATE TABLE {table_name} ({columns})', table[0])
-            if not table_parser:
-                continue
-            fs = table_parser.named['columns'].split(',')
-            fs = [c.strip() for c in fs]
-            columns = []
-            for field in fs:
-
-                field_parser = parse('{name} {type} {rest}', field) or parse(
-                    '{name} {type}', field)
-                field_parser.named['name'] = field_parser.named['name'].strip().replace("[", "").replace("]", "").replace("\"", "")
-                if field_parser is not None:
-                    field_parser.named['pk'] = False
-                    field_parser.named['fk'] = False
-                    # if column does not have argument. e.g CHAR(15)
-                    if field_parser.named['type'][-1] == r")":
-                        field_parser.named['size']=field_parser.named['type'][field_parser.named['type'].rfind("(")+1:-1]
-                        field_parser.named['type'] = field_parser.named['type'][:field_parser.named['type'].rfind("(")]
-                    if 'rest' in field_parser.named.keys():
-                        if 'NOT NULL' in field_parser.named['rest']:
-                            field_parser.named['null'] = False
-
-                        if 'PRIMARY KEY' in field:
-                            field_parser.named['pk'] = True
-
-                        if 'REFERENCES' in field_parser.named['rest']:
-                            field_parser.named['fk'] = True
-                            table_str = field.split(" REFERENCES ")[1]
-                            related_table = parse(
-                                "{table_name} ({field_name})", table_str).named
-                            # this might not set related table properly
-                            if 'related_table' in field_parser.named.keys():
-                                field_parser.named['related_table'].update(related_table)
-                            else:
-                                field_parser.named['related_table'] = related_table
-                        del field_parser.named['rest']
-                        print("Field\n\r\t", field)
-                        print("Parsed:\n\r\t", field_parser.named)
-                    columns.append(field_parser.named)
-
-            table_parser.named['columns'] = columns
-            table_list.append(table_parser.named)
-        return table_list
+        pass
