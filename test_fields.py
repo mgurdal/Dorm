@@ -154,13 +154,12 @@ class ForeignKeyTestCase(unittest.TestCase):
 
     def setUp(self):
         self.to_table = models.Model(_id=1)
-        self.to_table.__tablename__ = 'test_table'
         self.test_fk = models.ForeignKey(self.to_table)
         self.test_fk.name = 'test_fk'
 
     def test__sql(self):
         self.assertEqual(
-            'test_fk INTEGER NOT NULL REFERENCES test_table (_id)', self.test_fk._sql('test_fk'))
+            'test_fk INTEGER NOT NULL REFERENCES Model (_id)', self.test_fk._sql('test_fk'))
 
     def test__format(self):
         """sql query format of data"""

@@ -6,7 +6,6 @@ Define models here.
 import re
 from inspect import Signature, Parameter
 from collections import OrderedDict
-from pprint import pprint
 
 from queries import *
 
@@ -53,16 +52,26 @@ class Field(Descriptor):
         return '{0} {1}'.format(name, self.ty)
 
     @classmethod
-    def from_dict(cls, kwargs):
+    def from_dict(cls, field, registery={}):
         {'fk': False, 'name': '_id',
         'null': False, 'pk': True, 'type': 'INTEGER'}
-        if kwargs['pk'] is True:
+        if field['pk'] is True:
             field_cls = PrimaryKey()
-            field_cls.name = kwargs['name']
+            field_cls.name = field['name']
+            return field_cls
+        elif field['fk'] is True:
+            related_table = field['related_table']
+            # check model registery
+            if related_table['table_name'] in registery.keys():
+                field_cls = ForeignKey(registery[related_table['table_name']], related_table['field_name'])
+            else:
+                # print("Model '{}' not found in node registery creating a dummy one.".format(related_table['table_name']))
+                field_cls = ForeignKey(model_meta(related_table['table_name'], (Model,), {}), related_table['field_name'])
+            field_cls.name = field['name']
             return field_cls
         else:
-            field_cls = FIELD_MAP[kwargs['type']]()
-            field_cls.name = kwargs['name']
+            field_cls = FIELD_MAP[field['type']]()
+            field_cls.name = field['name']
             return field_cls
 
 class Integer(Field):
@@ -140,16 +149,17 @@ class PrimaryKey(Integer):
 
 class ForeignKey(Integer):
 
-    def __init__(self, to_table):
+    def __init__(self, to_table=None, to_column='_id'):
         self.to_table = to_table
+        self.to_column = to_column
         super(ForeignKey, self).__init__()
 
     def _sql(self, name):
         return '{column_name} {column_type} NOT NULL REFERENCES {tablename} ({to_column})'.format(
             column_name=name,
             column_type=self.ty,
-            tablename=self.to_table.__tablename__,
-            to_column='_id'
+            tablename=self.to_table.__name__,
+            to_column=self.to_column
         )
 
     def _format(self, data):
@@ -195,7 +205,11 @@ FIELD_MAP = {
     'TEXT': String,
     'FOREIGN': ForeignKey,
     'DATE': Date,
-    'DATETIME': Datetime
+    'DATETIME': Datetime,
+    'POINT': Varchar,
+    'LINESTRING': Varchar,
+    'MULTIPOLYGON': Varchar,
+    'BLOB': Varchar
 }
 
 class model_meta(type):
@@ -211,16 +225,74 @@ class model_meta(type):
         fields = OrderedDict([(key, val) for key, val in clsdict.items()
                               if isinstance(val, Field)])
 
+
         clsobj = super().__new__(cls, clsname, bases, dict(clsdict))
 
         sign = make_signature(fields)
         setattr(clsobj, "__signature__", sign)
         setattr(clsobj, '__fields__', fields)
+
+
+        # assign referance for relational fields
+        for name, field in fields.items():
+            if type(field) is ForeignKey:
+                setattr(field.to_table, clsname.lower()+"s", clsobj)
+
         return clsobj
 
+class ModelBase(type):
+    @classmethod
+    def __prepare__(cls, name, bases):
+        return OrderedDict()
+
+    def __new__(cls, clsname, bases, clsdict):
+
+        if '_id' not in clsdict:
+            clsdict['_id'] = PrimaryKey()
+
+        # dicts are ordered since python3.6
+        fields = OrderedDict([(key, val) for key, val in clsdict.items()
+                              if isinstance(val, Field)])
+
+        clsobj = type.__new__(cls, clsname, bases, dict(clsdict))
+
+        setattr(clsobj, '__fields__', fields)
+
+        # assign referance for relational fields
+        for name, field in fields.items():
+            if type(field) is ForeignKey:
+                setattr(field.to_table, clsname.lower()+"s", clsobj)
 
 def make_signature(fields):
+    # heavy work
     return Signature(Parameter(name, Parameter.POSITIONAL_OR_KEYWORD) for name in fields)
+
+class Model(metaclass=model_meta):
+    def __init__(self, *args, **kwargs):
+        if '_id' not in kwargs:
+            # auto incremented
+            kwargs.update({'_id':id(self)})
+
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
+    @classmethod
+    def get(self, **kwargs):
+        return SelectQuery(model=self).where(**kwargs).all()
+
+    @classmethod
+    def all(self):
+        return SelectQuery(model=self).all()
+
+    @classmethod
+    def select(self, *args, nodes=set(), **kwargs):
+        return SelectQuery(*args, model=self, nodes=nodes, **kwargs)
+
+    def update(self, *args, **kwargs):
+        return UpdateQuery(*args, model=self, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        return DeleteQuery(*args, model=self, **kwargs)
 
 
 class BaseNode(metaclass=model_meta):
@@ -231,62 +303,3 @@ class BaseNode(metaclass=model_meta):
         bound = self.__signature__.bind(*args, **kwargs)
         for key, value in bound.arguments.items():
             setattr(self, key, value)
-
-class Node(BaseNode):
-
-    def connect(self):
-        pass
-
-class Model(metaclass=model_meta):
-    def __init__(self, *args, **kwargs):
-        if '_id' not in kwargs:
-            # auto incremented
-            kwargs.update({'_id':id(self)})
-
-        bound = self.__signature__.bind(*args, **kwargs)
-        for key, value in bound.arguments.items():
-            setattr(self, key, value)
-
-    def get(self, **kwargs):
-        return SelectQuery(model=self).where(**kwargs).first()
-
-    def select(self, *args, **kwargs):
-        return SelectQuery(*args, model=self, **kwargs)
-
-    def update(self, *args, **kwargs):
-        return UpdateQuery(*args, model=self, **kwargs)
-
-    def delete(self, *args, **kwargs):
-        return DeleteQuery(*args, model=self, **kwargs)
-
-    def __str__(self):
-        return "{} : {}".format(self.__class__.__name__, self.__signature__)
-
-    def __repr__(self):
-        return "{} : {}".format(self.__class__.__name__, self.__signature__)
-
-    def _insert(self, db, sql):
-
-        cursor = db.execute(sql)
-        assert cursor, "Could not add to the database"
-        db.commit()
-
-        # refered fields
-
-    def save(self, db=None):
-        base_query = 'insert into {tablename}({columns}) values({items});'
-        columns = []
-        values = []
-
-        for field_name, field_model in self.__fields__.items():
-            if hasattr(self, field_name) and not isinstance(getattr(self, field_name), Field):
-                values.append(field_model._format(
-                    getattr(self, field_name)))
-                columns.append(field_name)
-
-        sql = base_query.format(
-            tablename=self.__class__.__name__,
-            columns=', '.join(columns),
-            items=', '.join(values)
-        )
-        self._insert(db, sql)

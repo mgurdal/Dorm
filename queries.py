@@ -9,10 +9,13 @@ class SelectQuery(object):
     """
 
     def __init__(self, *args, model=None, nodes=[]):
+        assert nodes or hasattr(model, '_node'), "SelectQuery does not have a node to select from!"
         # order matters
-        self.databases = [node.driver for node in nodes]
-        #self.model = model
-        self.model = model.__class__
+        self.databases = set(node.driver for node in nodes)
+        if hasattr(model, '_node'):
+            self.databases.add(model._node.driver)
+
+        self.model = model
         self.base_sql = 'select {columns} from {tablename};'
 
         query_args = args if args else ['*']
@@ -25,11 +28,10 @@ class SelectQuery(object):
             tablename=self.model.__name__
         )
 
-    def all(self, datatype=None, batch_size=None):
+    def all(self, datatype=dict, batch_size=None, verbose=False):
+        return self._execute(self.sql, datatype=datatype, batch_size=batch_size, verbose=verbose)
 
-        return self._execute(self.sql, datatype=datatype, batch_size=batch_size)
-
-    def first(self, datatype=None):
+    def first(self, datatype=dict):
         self.base_sql = '{0} limit 1;'.format(self.base_sql.rstrip(';'))
         try:
             return next(self._execute(self.sql, datatype=datatype))
@@ -85,7 +87,7 @@ class SelectQuery(object):
             self.databases = self.databases[slices[0]]
             # reduce the query based on second slice
             first_slice, second_slice = slices[1].start, slices[1].stop
-        elif isinstance(slices, slice):
+        elif isinstance(slices, slice): # wrong, handle the 3rd part
             first_slice, second_slice = slices.start, slices.stop
         else:
             raise SyntaxError("Invalid slice object")
@@ -156,7 +158,7 @@ class SelectQuery(object):
         return df"""
 
     # hard to test, needs refactor
-    def _execute(self, sql, datatype=dict, batch_size=None):
+    def _execute(self, sql, datatype=dict, batch_size=None, verbose=False):
         cursors = []
 
         for db in self.databases:
@@ -179,12 +181,11 @@ class SelectQuery(object):
             for record in records:  # get_cursor(batch_size):
                 #model = None
                 if not datatype:
+                    # refactor this
                     model = self.model.__class__(**dict(zip(description, record)))
-                    model.conf = db.conf
                     yield model
                 elif datatype == dict:
                     model = dict(zip(description, record))
-                    model['conf'] = db.conf
                     yield model
                 else:
                     raise Exception("Unsupported result type")
