@@ -137,8 +137,9 @@ class Date(Field):
 
 class Ip(Char):
     def _format(self, data):
-        assert IP_RE.match(data), 'Be sure you were given a valid IP address'
-        return super(IP, self)._format(data)
+        #assert IP_RE.match(data), 'Be sure you were given a valid IP address'
+        #print(IP_RE.match(data))
+        return super(Ip, self)._format(data)
 
 
 class PrimaryKey(Integer):
@@ -225,13 +226,11 @@ class model_meta(type):
         fields = OrderedDict([(key, val) for key, val in clsdict.items()
                               if isinstance(val, Field)])
 
-
         clsobj = super().__new__(cls, clsname, bases, dict(clsdict))
 
         sign = make_signature(fields)
         setattr(clsobj, "__signature__", sign)
         setattr(clsobj, '__fields__', fields)
-
 
         # assign referance for relational fields
         for name, field in fields.items():
@@ -300,6 +299,6 @@ class BaseNode(metaclass=model_meta):
         if '_id' not in kwargs:
             # auto incremented
             kwargs.update({'_id':id(self)})
-        bound = self.__signature__.bind(*args, **kwargs)
-        for key, value in bound.arguments.items():
+        # wrong update here reference confliction
+        for key, value in kwargs.items():
             setattr(self, key, value)

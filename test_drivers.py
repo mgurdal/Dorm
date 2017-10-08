@@ -15,7 +15,7 @@ class BaseDriverTestCase(unittest.TestCase):
 
     def test_create_table(self):
         model = MagicMock()
-        model.__class__.__name__ = "TestTable"
+        model.__name__ = "TestTable"
         field = MagicMock()
         field._sql = lambda x: x
         setattr(model, '__fields__', {'test_field': field})
@@ -29,7 +29,7 @@ class BaseDriverTestCase(unittest.TestCase):
 
     def test_drop_table(self):
         model = MagicMock()
-        model.__class__.__name__ = "TestTable"
+        model.__name__ = "TestTable"
         model.__fields__ = MagicMock()
         base = BaseDriver(None)
         base.execute = MagicMock()

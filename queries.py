@@ -40,17 +40,21 @@ class SelectQuery(object):
 
     def where(self, *args, **kwargs):
         where_list = []
+
         for k in kwargs:
             assert k in self.model.__fields__, "Invalid attribute!"
+
         for k in args:
             assert k in self.model.__fields__, "Invalid attribute!"
 
         for k, v in kwargs.items():
             where_list.append('{0}="{1}"'.format(k, str(v)))
+
         where_list.extend(args)
 
         self.base_sql = '{0} where {1};'.format(
             self.base_sql.rstrip(';'), ' and '.join(where_list))
+
         return self
 
     def _base_function(self, func):

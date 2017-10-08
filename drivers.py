@@ -33,7 +33,7 @@ class BaseDriver(object):
                 field.create_m2m_table()
 
     def drop_table(self, model):
-        tablename = model.__class__.__name__
+        tablename = model.__name__
         self.execute('drop table IF EXISTS {0};'.format(
             tablename), commit=True)
         #del self.__tables__[tablename]
@@ -57,10 +57,11 @@ class BaseDriver(object):
         try:
             cursor.execute(sql)
             if commit:
-                print(sql)
+                # print(sql)
                 self.commit()
             return cursor
         except Exception as e:
+            print("Error")
             print(vars(e))
 
 class Sqlite(BaseDriver):
@@ -102,7 +103,6 @@ class Sqlite(BaseDriver):
                 'CREATE TABLE {table_name} ({columns})', table[0])
             if not table_parser:
                 continue
-
             fs = table_parser.named['columns'].split(',')
             fs = [c.strip() for c in fs]
             columns = []
@@ -128,6 +128,7 @@ class Sqlite(BaseDriver):
                         if 'REFERENCES' in field_parser.named['rest']:
                             field_parser.named['fk'] = True
                             table_str = field.split(" REFERENCES ")[1]
+                            print(table_str)
                             related_table = parse(
                                 "{table_name} ({field_name})", table_str).named
                             # this might not set related table properly
@@ -135,9 +136,10 @@ class Sqlite(BaseDriver):
                                 field_parser.named['related_table'].update(related_table)
                             else:
                                 field_parser.named['related_table'] = related_table
+                            print(field_parser.named['related_table'])
                         del field_parser.named['rest']
-                        print("Field\n\r\t", field)
-                        print("Parsed:\n\r\t", field_parser.named)
+                        #print("Field\n\r\t", field)
+                        #print("Parsed:\n\r\t", field_parser.named)
                     columns.append(field_parser.named)
 
             table_parser.named['columns'] = columns

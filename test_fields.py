@@ -154,6 +154,7 @@ class ForeignKeyTestCase(unittest.TestCase):
 
     def setUp(self):
         self.to_table = models.Model(_id=1)
+        self.to_table.__name__ = "Model"
         self.test_fk = models.ForeignKey(self.to_table)
         self.test_fk.name = 'test_fk'
 
@@ -179,7 +180,7 @@ class ManyToManyTestCase(unittest.TestCase):
 
         self.assertTrue(hasattr(manytomany, 'to_model'))
 
-    @patch('models.Node')
+    @patch('dorm.Node')
     def test_create_relation(self, Node):
         n = Node()
         to_model = MagicMock()
