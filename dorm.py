@@ -1,7 +1,10 @@
 import models
 from drivers import Sqlite
 from datetime import datetime
-from pprint import pprint as print
+#from pprint import pprint as print
+from conf import NODES
+
+from itertools import chain
 
 class Node(object):
     """
@@ -13,13 +16,14 @@ class Node(object):
     _models = {}
     _model_store = []
 
-    def __init__(self, ip="0.0.0.0", port=0, name='mysqlite2', user='sky', password='123', type_='sqlite'):
+    def __init__(self, ip="0.0.0.0", port=0, name='mysqlite2', user='sky', password='123', type_='sqlite', replicaa=False):
         self.ip = ip
         self.port = port
         self.name = name
         self.user = user
         self.password = password
         self.type_ = type_
+        self.replicaa = replicaa
 
     def bind(self, driver):
         # check if supported
@@ -115,22 +119,22 @@ class ModelQuery(dict):
     _models = {}
     _queries = []
 
-    @classmethod
     def select(cls, *args, **kwargs):
         """ Lazy select
             Cool loading
             Async
         """
-        for n_name, model in cls._models.items():
-            cls._queries.append(model.select(*args, **kwargs))
+        cls._queries = [model.select(*args, **kwargs) for _, model in cls._models.items()]
         return cls
 
-    @classmethod
+    def where(cls, **kwargs):
+        cls._queries = [query.where(**kwargs) for query in cls._queries]
+        print([c.sql for c in cls._queries])
+        return cls
+
     def all(self):
         # write async
-        while self._queries:
-            sq = self._queries.pop()
-            yield [*sq.all()] # bad
+        return chain(*[sq.all() for sq in self._queries])
 
 class DORM(object):
     """
@@ -145,10 +149,11 @@ class DORM(object):
 
     _ext_table = Sqlite(name='conf.db')
     _node_store = {}
-    def initialize_nodes(self, nodes=None):
-        # support batch insert
-        for node in nodes:
-            self._ext_table.create_table(node)
+    #
+    # def initialize_nodes(self, nodes=None):
+    #     # support batch insert
+    #     for node in nodes:
+    #         self._ext_table.create_table(node)
 
     def add_node(self, n):
         # n.save_node(self._ext_table)
@@ -156,11 +161,29 @@ class DORM(object):
         self._node_store[n.name] = n
         pass
 
+    def initialize_nodes(self):
+        for node in NODES:
+            if node['type_'] == "sqlite":
+                sqlite_node = Node(**node)
+                # mayme I can auto bind driver based on type_ value
+                sqlite_driver = Sqlite(name=node['name'])
+                sqlite_node.bind(sqlite_driver)
+                self.add_node(sqlite_node)
+
+    @property
+    def models(self):
+        for name, node in self._node_store.items():
+            print()
+            print(name)
+            for model in node._model_store:
+                print("\t", model['table_name'])
+
     @classmethod
     def find(self, target_model):
         """
         # does it fight with other nodes
-        # does it fight with other models
+        # d+oes it fight with other models
+        # filter replications
         # if I say get name dont get name
             column from all models
 
@@ -172,10 +195,13 @@ class DORM(object):
         # can be changed with SelectQuery
         mq = ModelQuery()
         for n_name, node in self._node_store.items():
-            for m_name, model in node._models.items():
-                if m_name == target_model:
-                    # might need to change to id or auto assigned name
-                    mq._models[n_name] = model
+            if not node.replica:
+                print("Fetching from Node:", n_name)
+                for m_name, model in node._models.items():
+                    if m_name == target_model:
+                        print("\tFetching from Model:", m_name)
+                        # might need to change to id or auto assigned name
+                        mq._models[n_name] = model
         # reduce node store - done
         # find model - done
         # execute q
@@ -223,5 +249,5 @@ if __name__ == '__main__':
                 password= input("Password: "),
                 type_= input("Type: (postgresql) ")
             )
-        
+
     print(n1.ip)
