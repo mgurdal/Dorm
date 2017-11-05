@@ -1,9 +1,7 @@
-import models
-from drivers import Sqlite
+from . import models
 from datetime import datetime
 #from pprint import pprint as print
-from conf import NODES
-
+from .conf import NODES
 from itertools import chain
 
 class Node(object):
@@ -16,18 +14,20 @@ class Node(object):
     _models = {}
     _model_store = []
 
-    def __init__(self, ip="0.0.0.0", port=0, name='mysqlite2', user='sky', password='123', type_='sqlite', replicaa=False):
-        self.ip = ip
-        self.port = port
+    def __init__(self, _id, name='mysqlite2', ip="0.0.0.0", port=1307, type_='sqlite', replica=False):
+        self._id = _id
         self.name = name
-        self.user = user
-        self.password = password
         self.type_ = type_
-        self.replicaa = replicaa
+        self.replica = replica
+        if type_ == 'sqlite':
+            print("Creating "+type_.title()+" Driver")
+            from .drivers import Sqlite
+            self.driver = Sqlite(dbname="postgres", user="docker", host="0.0.0.0", password="docker")
 
-    def bind(self, driver):
-        # check if supported
-        self.driver = driver
+        elif type_ == 'postgres':
+            print("Creating "+type_.title()+" Driver")
+            from .drivers import Postgres
+            self.driver = Postgres(dbname="postgres", host=ip, user="docker", password="docker")
 
     def collect_models(self):
         assert hasattr(self, 'driver'), 'Node does not have a driver'
@@ -129,11 +129,9 @@ class ModelQuery(dict):
 
     def where(cls, **kwargs):
         cls._queries = [query.where(**kwargs) for query in cls._queries]
-        print([c.sql for c in cls._queries])
         return cls
 
     def all(self):
-        # write async
         return chain(*[sq.all() for sq in self._queries])
 
 class DORM(object):
@@ -147,28 +145,12 @@ class DORM(object):
         d.find("User").select('name').all()
     """
 
-    _ext_table = Sqlite(name='conf.db')
     _node_store = {}
-    #
-    # def initialize_nodes(self, nodes=None):
-    #     # support batch insert
-    #     for node in nodes:
-    #         self._ext_table.create_table(node)
 
     def add_node(self, n):
         # n.save_node(self._ext_table)
         n.collect_models()
         self._node_store[n.name] = n
-        pass
-
-    def initialize_nodes(self):
-        for node in NODES:
-            if node['type_'] == "sqlite":
-                sqlite_node = Node(**node)
-                # mayme I can auto bind driver based on type_ value
-                sqlite_driver = Sqlite(name=node['name'])
-                sqlite_node.bind(sqlite_driver)
-                self.add_node(sqlite_node)
 
     @property
     def models(self):
@@ -208,13 +190,6 @@ class DORM(object):
         # collect & merge
         return mq # node collection
 
-    def collect_nodes(self):
-        # check if conf.db exists
-        # check if conf.py exists
-        # check if cong.json exists
-        # health_check
-        pass
-
     def add_model(self, m, to_node):
         # where to put
         # find nodes that contains related tables
@@ -235,19 +210,13 @@ class DORM(object):
     def clone_model(self, model, from_node, to_node):
         pass
 
+    def create_node(self, container_id, name="node_1", type_='postgres', replica=False):
+        # spin a docker container
+        new_node = Node(_id=container_id, name=name, type_=type_, replica=replica)
+        self.add_node(new_node)
+        return new_node
+
 if __name__ == '__main__':
     import sys, os
 
-    if sys.argv[1] == "add":
-        sys.stdout.write("\n\tAdding new Node\n\n")
-
-        n1 = Node(
-                ip= input("IP: (0.0.0.0) "),
-                port= input("Port: (5432) "),
-                name= input("Name: ({}) ".format(os.uname().nodename)),
-                user= input("User: (docker)"),
-                password= input("Password: "),
-                type_= input("Type: (postgresql) ")
-            )
-
-    print(n1.ip)
+    d = DORM()

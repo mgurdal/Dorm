@@ -7,7 +7,7 @@ import re
 from inspect import Signature, Parameter
 from collections import OrderedDict
 
-from queries import *
+from .queries import *
 
 
 """

@@ -1,5 +1,5 @@
 
-from models import ManyToMany, Model, model_meta
+from .models import ManyToMany, Model, model_meta
 from parse import parse
 from pprint import pprint
 
@@ -148,10 +148,22 @@ class Sqlite(BaseDriver):
 
 
 class Postgres(BaseDriver):
-    import psycopg2 as postgres
-    def __init__(self, conf):
-        self.conn = postgres.connect("dbname=postgres user=sky")
-        super(Sqlite, self).__init__(conn=self.conn)
+
+    def __init__(self, dbname="postgres", user="docker", host="0.0.0.0", password="docker"):
+        import psycopg2 as postgres
+        # connect to the postgres database inside the docker
+        # if this was in the docker and in the same net
+        # this would not be an issue
+        """
+            dbname – the database name (database is a deprecated alias)
+            user – user name used to authenticate
+            password – password used to authenticate
+            host – database host address (defaults to UNIX socket if not provided)
+            port – connection port number (defaults to 5432 if not provided)
+            adap = postgres.connect(dbname="postgres", user="docker", host="172.21.0.2", password="docker")
+        """
+        self.conn = postgres.connect(dbname=dbname, user=user, password=password)
+        super(Postgres, self).__init__(conn=self.conn)
 
     def discover(self):
         """ Creates model structure from database tables """
