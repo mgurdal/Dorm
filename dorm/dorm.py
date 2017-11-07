@@ -14,7 +14,7 @@ class Node(object):
     _models = {}
     _model_store = []
 
-    def __init__(self, _id, name='mysqlite2', ip="0.0.0.0", port=1307, type_='sqlite', replica=False):
+    def __init__(self, _id, ip, name='dorm', port=1307, type_='postgres', replica=False):
         self._id = _id
         self.name = name
         self.type_ = type_
@@ -22,12 +22,12 @@ class Node(object):
         if type_ == 'sqlite':
             print("Creating "+type_.title()+" Driver")
             from .drivers import Sqlite
-            self.driver = Sqlite(dbname="postgres", user="docker", host="0.0.0.0", password="docker")
+            self.driver = Sqlite(dbname="sqlite", user="docker", host=ip, password="docker")
 
         elif type_ == 'postgres':
             print("Creating "+type_.title()+" Driver")
             from .drivers import Postgres
-            self.driver = Postgres(dbname="postgres", host=ip, user="docker", password="docker")
+            self.driver = Postgres(dbname=name, host=ip, user="docker", password="docker")
 
     def collect_models(self):
         assert hasattr(self, 'driver'), 'Node does not have a driver'
@@ -149,8 +149,8 @@ class DORM(object):
 
     def add_node(self, n):
         # n.save_node(self._ext_table)
-        n.collect_models()
-        self._node_store[n.name] = n
+        #n.collect_models()
+        self._node_store[n._id] = n
 
     @property
     def models(self):
@@ -186,8 +186,8 @@ class DORM(object):
                         mq._models[n_name] = model
         # reduce node store - done
         # find model - done
-        # execute q
-        # collect & merge
+        # execute q - done
+        # collect & merge - done
         return mq # node collection
 
     def add_model(self, m, to_node):
@@ -210,9 +210,9 @@ class DORM(object):
     def clone_model(self, model, from_node, to_node):
         pass
 
-    def create_node(self, container_id, name="node_1", type_='postgres', replica=False):
+    def create_node(self, container_id, host="0.0.0.0", name="node_1", type_='postgres', replica=False):
         # spin a docker container
-        new_node = Node(_id=container_id, name=name, type_=type_, replica=replica)
+        new_node = Node(_id=container_id, ip=host, name=name, type_=type_, replica=replica)
         self.add_node(new_node)
         return new_node
 

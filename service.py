@@ -22,9 +22,19 @@ async def test(request):
     replica = body['replica'].pop()
 
     n = dorm.create_node(container_id, type_=type_, replica=replica)
-    return json({ "parsed": True, "body": n.__fields__})
+    return json({ "parsed": True, "body": vars(n)})
 
+@app.route("/create_model/", methods=['POST'])
+async def test(request):
+    body = request.form
+
+    container_id = body['container_id'].pop()
+    ip = body['ip'].pop()
+    type_ = body['type_'].pop()
+    replica = body['replica'].pop()
+
+    n = dorm.create_node(container_id, type_=type_, replica=replica)
+    return json({ "parsed": True, "body": vars(n)})
 
 if __name__ == "__main__":
-
     app.run(host="0.0.0.0", port=1307)
