@@ -28,8 +28,7 @@ COPY get_table_structures.sql /get.sql
 COPY world.sql /test_data.sql
 RUN    /etc/init.d/postgresql start &&\
     psql --command "CREATE USER docker WITH SUPERUSER PASSWORD 'docker';" &&\
-    createdb -O docker dorm &&\
-    psql -U docker -a -w -f /test_data.sql
+    createdb -O docker dorm
 
 
 # Adjust PostgreSQL configuration so that remote connections to the

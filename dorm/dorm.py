@@ -1,7 +1,7 @@
 from . import models
 from datetime import datetime
 #from pprint import pprint as print
-from .conf import NODES
+# from .conf import NODES
 from itertools import chain
 
 class Node(object):
@@ -104,6 +104,10 @@ class Node(object):
         # validate that its really added to database
         assert cursor, "Could not add to database"
         driver.commit()
+
+    def connect(self):
+        # try to connect to the database inside the docker container
+        pass
 
 class ModelQuery(dict):
     """
