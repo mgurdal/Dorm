@@ -25,7 +25,7 @@ IP_RE = re.compile(
 class Descriptor:
     value = None
 
-    def __init__(self, name=None):
+    def __init__(self, name=None, **kwargs):
         self.name = name
 
     def __set__(self, instance, value):
@@ -53,8 +53,9 @@ class Field(Descriptor):
 
     @classmethod
     def from_dict(cls, field, registery={}):
-        {'fk': False, 'name': '_id',
-        'null': False, 'pk': True, 'type': 'INTEGER'}
+        """
+        {'fk': False, 'name': 'id', 'null': False, 'pk': True, 'type': 'INTEGER'}
+        """
         if field['pk'] is True:
             field_cls = PrimaryKey()
             field_cls.name = field['name']
@@ -105,6 +106,12 @@ class Char(Field):
         """sql query format of data"""
         return "'{0}'".format(str(data))
 
+class Character(Field):
+    ty = 'CHAR'
+
+    def _format(self, data):
+        """sql query format of data"""
+        return "'{0}'".format(str(data))
 
 class Varchar(Field):
     ty = 'VARCHAR'
@@ -113,6 +120,19 @@ class Varchar(Field):
         """sql query format of data"""
         return "'{0}'".format(str(data))
 
+class Point(Field):
+    ty = 'VARCHAR'
+
+    def _format(self, point):
+        """sql query format of data"""
+        return "point({0}, {1})".format(str(point[0]), str(point[1]))
+
+class Real(Field):
+    ty = 'VARCHAR'
+
+    def _format(self, data):
+        """sql query format of data"""
+        return "'{0}'".format(str(data))
 
 class Datetime(Field):
     ty = 'DATETIME'
@@ -150,7 +170,7 @@ class PrimaryKey(Integer):
 
 class ForeignKey(Integer):
 
-    def __init__(self, to_table=None, to_column='_id'):
+    def __init__(self, to_table=None, to_column='id'):
         self.to_table = to_table
         self.to_column = to_column
         super(ForeignKey, self).__init__()
@@ -166,7 +186,7 @@ class ForeignKey(Integer):
     def _format(self, data):
         """sql query format of data"""
         if isinstance(data, Model):
-            return str(data._id)  # find the pk
+            return str(data.id)  # find the pk
         else:
             return super(ForeignKey, self)._format(data)
 
@@ -190,9 +210,9 @@ class ManyToMany(object):
 
         # merge class attrs
         foreign_fields = {
-            '_id': PrimaryKey(),
-            from_model.__name__+'_id': ForeignKey(from_model.__class__),
-            self.to_model.__name__+'_id': ForeignKey(self.to_model.__class__)
+            'id': PrimaryKey(),
+            from_model.__name__+'id': ForeignKey(from_model.__class__),
+            self.to_model.__name__+'id': ForeignKey(self.to_model.__class__)
         }
         mm_model = type(mm_table_name, (Model,), foreign_fields)
 
@@ -220,8 +240,8 @@ class model_meta(type):
 
     def __new__(cls, clsname, bases, clsdict):
 
-        if '_id' not in clsdict:
-            clsdict['_id'] = PrimaryKey()
+        if 'id' not in clsdict:
+            clsdict['id'] = PrimaryKey()
 
         fields = OrderedDict([(key, val) for key, val in clsdict.items()
                               if isinstance(val, Field)])
@@ -246,8 +266,8 @@ class ModelBase(type):
 
     def __new__(cls, clsname, bases, clsdict):
 
-        if '_id' not in clsdict:
-            clsdict['_id'] = PrimaryKey()
+        if 'id' not in clsdict:
+            clsdict['id'] = PrimaryKey()
 
         # dicts are ordered since python3.6
         fields = OrderedDict([(key, val) for key, val in clsdict.items()
@@ -268,9 +288,9 @@ def make_signature(fields):
 
 class Model(metaclass=model_meta):
     def __init__(self, *args, **kwargs):
-        if '_id' not in kwargs:
+        if 'id' not in kwargs:
             # auto incremented
-            kwargs.update({'_id':id(self)})
+            kwargs.update({'id':id(self)})
 
         for key, value in kwargs.items():
             setattr(self, key, value)
@@ -296,9 +316,9 @@ class Model(metaclass=model_meta):
 
 class BaseNode(metaclass=model_meta):
     def __init__(self, *args, **kwargs):
-        if '_id' not in kwargs:
+        if 'id' not in kwargs:
             # auto incremented
-            kwargs.update({'_id':id(self)})
+            kwargs.update({'id':id(self)})
         # wrong update here reference confliction
         for key, value in kwargs.items():
             setattr(self, key, value)

@@ -50,6 +50,72 @@ class BaseDriver(object):
     def close(self):
         self.conn.close()
 
+    def generate(self, path="", node_name="models", save=True):
+        """ Generates model class code from model structre
+        """
+
+        class_str = """class {name}(models.Model):\n"""
+        field_str = """    {name} = models.{field}({extras})"""
+        code = "from dorm.database import models\n\n"
+        models = []
+        for model_structure in self.discover():
+
+            model = class_str.format(
+                name=model_structure['table_name'].title())
+
+            fields = []
+            for column in model_structure['columns']:
+                if column['extras']['fk']:
+                    del column['extras']['fk']
+                    del column['extras']['pk']
+                    del column['extras']['not_null']
+                    if column['extras']['related_field'] == 'id':
+                        del column['extras']['related_field']
+                    related_table = column['extras'].pop('related_table')
+                    if column['extras']:
+                        field = field_str.format(
+                            name=column['name'], field='ForeignKey', extras=related_table.capitalize() + ', {}')
+                    else:
+                        field = field_str.format(
+                            name=column['name'], field='ForeignKey', extras=related_table.capitalize())
+
+                elif column['extras']['pk']:
+                    del column['extras']['pk']
+                    del column['extras']['fk']
+                    del column['extras']['not_null']
+
+                    if column['extras']:
+                        field = field_str.format(
+                            name=column['name'], field='PrimaryKey', extras=str(column['extras']))
+                    else:
+                        field = field_str.format(
+                            name=column['name'], field='PrimaryKey', extras='')
+
+                    fields.insert(0, field)
+                    continue
+                else:
+                    del column['extras']['pk']
+                    del column['extras']['fk']
+                    field = field_str.format(name=column['name'],
+                                             field=column['type'].capitalize(
+                    ),  # extras=", ".join(k+"="+str(v) for k, v in column['extras'].items())
+                        extras='{}')
+
+                fields.append(field.format(str(", ".join(["{}={}".format(x, y) for x, y in column['extras'].items()]) or '')))
+            # define primary key first, looks ugly
+
+            # fields.insert(0, fields.pop(fields.index(next(filter(lambda x: "pk=True" in x, fields)))))
+            model += "\n".join(fields) + "\n\n"
+
+            models.append(model)
+        code += "\n".join(models)
+        # find current dir
+        import os
+        if not os.path.exists(path):
+            os.makedirs(path)
+        open(path + node_name + ".py", 'w').write(code)
+        return models
+
     def execute(self, sql, commit=False):
         print(sql)
         cursor = self.conn.cursor()
@@ -167,46 +233,87 @@ class Postgres(BaseDriver):
         super(Postgres, self).__init__(conn=self.conn)
 
     def discover(self):
-        """ Creates model structure from database tables """
-        table_info_sql = """SELECT
-            f.attnum AS number,
-            f.attname AS name,
-            f.attnum,
-            f.attnotnull AS notnull,
-            n.nspname as database,
-            c.relname as table_name,
-            pg_catalog.format_type(f.atttypid,f.atttypmod) AS type,
-            CASE
-                WHEN p.contype = 'p' THEN 't'
-                ELSE 'f'
-            END AS primarykey,
-            CASE
-                WHEN p.contype = 'u' THEN 't'
-                ELSE 'f'
-            END AS uniquekey,
-            CASE
-                WHEN p.contype = 'f' THEN g.relname
-            END AS foreignkey,
-            CASE
-                WHEN p.contype = 'f' THEN p.confkey
-            END AS foreignkey_fieldnum,
-            CASE
-                WHEN p.contype = 'f' THEN g.relname
-            END AS foreignkey,
-            CASE
-                WHEN p.contype = 'f' THEN p.conkey
-            END AS foreignkey_connnum,
-            CASE
-                WHEN f.atthasdef = 't' THEN d.adsrc
-            END AS default
-        FROM pg_attribute f
-            JOIN pg_class c ON c.oid = f.attrelid
-            JOIN pg_type t ON t.oid = f.atttypid
-            LEFT JOIN pg_attrdef d ON d.adrelid = c.oid AND d.adnum = f.attnum
-            LEFT JOIN pg_namespace n ON n.oid = c.relnamespace
-            LEFT JOIN pg_constraint p ON p.conrelid = c.oid AND f.attnum = ANY (p.conkey)
-            LEFT JOIN pg_class AS g ON p.confrelid = g.oid
-        WHERE c.relkind = 'r'::char
-            AND f.attnum > 0 ORDER BY number
-        ;"""
-        return self.execute(table_info_sql, commit=True)
+        """ Creates model structure from database tables
+        {
+        'table_name': 'Roads',
+           'columns': [
+                       {'fk': False, 'name': 'PK_UID',     'pk': True,  'type': 'INTEGER'},
+                       {'fk': False, 'name': 'F_NODE',     'pk': False, 'type': 'INTEGER'},
+                       {'fk': False, 'name': 'T_NODE',     'pk': False, 'type': 'INTEGER'},
+                       {'fk': False, 'name': 'Type',       'pk': False, 'type': 'TEXT'},
+                       {'fk': False, 'name': 'Speed',      'pk': False, 'type': 'TEXT'},
+                       {'fk': False, 'name': 'TravelTime', 'pk': False, 'type': 'DOUBLE'},
+                       {'fk': False, 'name': 'Geometry', '  pk': False, 'type': 'LINESTRING'}
+                     ]
+        }
+        """
+        def to_dict(cur):
+            names = [x.name for x in cur.description]
+            rs = cur.fetchall()
+            table_set = [dict(zip(names, x)) for x in rs]
+            return table_set
+
+        # tables = mr_d.execute("""select *
+        # from information_schema.tables
+        # where table_schema not in ('pg_catalog', 'information_schema')
+        # and table_schema not like 'pg_toast%'""")
+        # td = to_dict(tables)
+        # td
+        # columns = mr_d.execute("""select *
+        # from information_schema.columns
+        # where table_schema not in ('pg_catalog', 'information_schema')
+        # and table_schema not like 'pg_toast%'""")
+        # cd = to_dict(columns)
+        # get_ipython().run_line_magic('cd', '')
+        cs_sql = """select * from INFORMATION_SCHEMA.KEY_COLUMN_USAGE"""
+        # mr_d.rollback()
+        fks = self.execute(cs_sql)
+        forigns = to_dict(fks)
+        fors = [x['column_name'] for x in forigns if x['constraint_name'].endswith("_fkey")]
+
+
+        f_sql = """select * from INFORMATION_SCHEMA.COLUMNS where table_schema!='pg_catalog' and table_schema!='information_schema'"""
+        fields_c = self.execute(f_sql)
+        fields = to_dict(fields_c)
+        # c+=fields
+
+        structures =  []
+        t_names = set(([col['table_name'] for col in fields]))
+
+        structures = [{ "table_name": t_name, "columns": [] } for t_name in t_names]
+
+        for col in fields:
+           for table in structures:
+              if col['table_name'] == table['table_name']:
+                 nc = {}
+                 extras = dict(pk=False, fk=False, not_null=False)
+                 nc['extras']=extras
+                 if col['column_name'] == "id":
+                    nc.update(name="id", type="Integer")
+                    nc['extras'].update(pk=True, not_null=False)
+                    table['columns'].append(nc)
+                 else:
+                    nc.update(
+                       name=col['column_name'],
+                       type=col['data_type'].split()[0].title(),
+                       extras=dict(
+                           fk=False,
+                           pk=False
+                           )
+                    )
+                    if col['character_maximum_length']:
+                        nc['extras'].update(size=col['character_maximum_length'])
+                    if col['is_nullable'] == "YES":
+                       nc['extras'].update(not_null=True)
+                    elif col['is_nullable'] == "NO":
+                       nc['extras'].update(not_null=False)
+                    if col['column_name'] in fors:
+                          nc['extras'].update(
+                             fk=True,
+                             pk=False,
+                             related_field=col['column_name'].split("_")[1],
+                             related_table=col['column_name'].split("_")[0]
+                          )
+
+                    table['columns'].append(nc)
+        return structures
