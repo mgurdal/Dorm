@@ -19,6 +19,8 @@ class Node(object):
         self.name = name
         self.type_ = type_
         self.replica = replica
+        self.ip = ip
+        self.port = port
         if type_ == 'sqlite':
             print("Creating "+type_.title()+" Driver")
             from .drivers import Sqlite
@@ -36,7 +38,7 @@ class Node(object):
         for model_s in model_structures:
             # can be dynamic (using from dict or smt.)
             fs = [models.Field.from_dict(x, registery=self._models) for x in model_s['columns']]
-            mod = models.model_meta(model_s['table_name'], (models.Model,), {f.name:f for f in fs})
+            mod = models.model_meta(model_s['table_name'].title(), (models.Model,), {f.name:f for f in fs})
             # handle relation in here via fields referance info
 
             mod._node = self
@@ -214,9 +216,9 @@ class DORM(object):
     def clone_model(self, model, from_node, to_node):
         pass
 
-    def create_node(self, container_id, host="0.0.0.0", name="node_1", type_='postgres', replica=False):
+    def create_node(self, container_id, ip="0.0.0.0", name="node_1", type_='postgres', replica=False):
         # spin a docker container
-        new_node = Node(_id=container_id, ip=host, name=name, type_=type_, replica=replica)
+        new_node = Node(_id=container_id, ip=ip, name="dorm", type_=type_, replica=replica)
         self.add_node(new_node)
         return new_node
 

@@ -56,11 +56,11 @@ class Field(Descriptor):
         """
         {'fk': False, 'name': 'id', 'null': False, 'pk': True, 'type': 'INTEGER'}
         """
-        if field['pk'] is True:
+        if field['extras']['pk'] is True:
             field_cls = PrimaryKey()
             field_cls.name = field['name']
             return field_cls
-        elif field['fk'] is True:
+        elif field['extras']['fk'] is True:
             related_table = field['related_table']
             # check model registery
             if related_table['table_name'] in registery.keys():
@@ -230,7 +230,9 @@ FIELD_MAP = {
     'POINT': Varchar,
     'LINESTRING': Varchar,
     'MULTIPOLYGON': Varchar,
-    'BLOB': Varchar
+    'BLOB': Varchar,
+    'Character': Character,
+    
 }
 
 class model_meta(type):
