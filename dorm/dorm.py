@@ -166,6 +166,10 @@ class DORM(object):
             for model in node._model_store:
                 print("\t", model['table_name'])
 
+    def collect_models(self):
+        for key, node in self._node_store.items():
+            node.collect_models()
+
     @classmethod
     def find(self, target_model):
         """
@@ -186,10 +190,11 @@ class DORM(object):
             if not node.replica:
                 print("Fetching from Node:", n_name)
                 for m_name, model in node._models.items():
+                    print(model)
                     if m_name == target_model:
-                        print("\tFetching from Model:", m_name)
+                        print("\tFetching from Model:", model)
                         # might need to change to id or auto assigned name
-                        mq._models[n_name] = model
+                        mq._models[m_name] = model
         # reduce node store - done
         # find model - done
         # execute q - done

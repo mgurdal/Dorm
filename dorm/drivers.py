@@ -20,8 +20,10 @@ class BaseDriver(object):
         create_sql = ', '.join(field._sql(name) for name, field in model.__fields__.items())
 
         try:
-            self.execute('create table if not exists {0} ({1});'.format(
-                tablename, create_sql), commit=True)
+            cs = 'create table if not exists {0} ({1});'.format(
+                tablename, create_sql)
+            print(cs)
+            self.execute(cs, commit=True)
         except Exception as e:
             print(e, create_sql)
 

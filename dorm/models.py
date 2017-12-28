@@ -49,7 +49,8 @@ class Field(Descriptor):
 
     def _sql(self, name):
         """Return sql statement for create table."""
-        return '{0} {1}'.format(name, self.ty)
+        size = "("+str(getattr(self, 'size'))+")" if hasattr(self, 'size') else ""
+        return '{0} {1}{2}'.format(name, self.ty, size)
 
     @classmethod
     def from_dict(cls, field, registery={}):
@@ -77,7 +78,7 @@ class Field(Descriptor):
 
 class Integer(Field):
     ty = 'INTEGER'
-
+    size = 11
     def _format(self, data):
         """sql query format of data"""
         return str(int(data))
@@ -85,7 +86,7 @@ class Integer(Field):
 
 class String(Field):
     ty = 'TEXT'
-
+    size = 80
     def _format(self, data):
         """sql query format of data"""
         return "'{0}'".format(str(data))
@@ -93,7 +94,7 @@ class String(Field):
 
 class Float(Field):
     ty = 'DOUBLE'
-
+    size = 11
     def _format(self, data):
         """sql query format of data"""
         return str(float(data))
@@ -101,31 +102,30 @@ class Float(Field):
 
 class Char(Field):
     ty = 'CHAR'
-
+    size = 11
     def _format(self, data):
         """sql query format of data"""
         return "'{0}'".format(str(data))
 
 class Character(Field):
     ty = 'CHAR'
-
+    size = 80
     def _format(self, data):
         """sql query format of data"""
         return "'{0}'".format(str(data))
 
 class Varchar(Field):
     ty = 'VARCHAR'
-
+    size = 11
     def _format(self, data):
         """sql query format of data"""
         return "'{0}'".format(str(data))
 
 class Point(Field):
-    ty = 'VARCHAR'
-
+    ty = 'POINT'
     def _format(self, point):
         """sql query format of data"""
-        return "point({0}, {1})".format(str(point[0]), str(point[1]))
+        return "Point({0}, {1})".format(str(point[0]), str(point[1]))
 
 class Real(Field):
     ty = 'VARCHAR'
@@ -227,12 +227,12 @@ FIELD_MAP = {
     'FOREIGN': ForeignKey,
     'DATE': Date,
     'DATETIME': Datetime,
-    'POINT': Varchar,
+    'POINT': Point,
     'LINESTRING': Varchar,
     'MULTIPOLYGON': Varchar,
     'BLOB': Varchar,
     'Character': Character,
-    
+
 }
 
 class model_meta(type):
