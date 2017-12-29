@@ -22,7 +22,6 @@ class BaseDriver(object):
         try:
             cs = 'create table if not exists {0} ({1});'.format(
                 tablename, create_sql)
-            print(cs)
             self.execute(cs, commit=True)
         except Exception as e:
             print(e, create_sql)
@@ -118,20 +117,16 @@ class BaseDriver(object):
         open(path + node_name + ".py", 'w').write(code)
         return models
 
-    def execute(self, sql, commit=False):
-        print(sql)
-        cursor = self.conn.cursor()
-        if not cursor:
-            print("Invalid sql", sql)
+    def execute(self, sql, commit=True):
         try:
+            cursor = self.conn.cursor()
             cursor.execute(sql)
             if commit:
-                print(sql)
                 self.commit()
             return cursor
         except Exception as e:
-            print("Error")
-            print(vars(e))
+            print(str(e))
+            raise e
 
 class Sqlite(BaseDriver):
     def __init__(self, **conf):
@@ -197,7 +192,6 @@ class Sqlite(BaseDriver):
                         if 'REFERENCES' in field_parser.named['rest']:
                             field_parser.named['fk'] = True
                             table_str = field.split(" REFERENCES ")[1]
-                            print(table_str)
                             related_table = parse(
                                 "{table_name} ({field_name})", table_str).named
                             # this might not set related table properly
@@ -205,7 +199,6 @@ class Sqlite(BaseDriver):
                                 field_parser.named['related_table'].update(related_table)
                             else:
                                 field_parser.named['related_table'] = related_table
-                            print(field_parser.named['related_table'])
                         del field_parser.named['rest']
                         #print("Field\n\r\t", field)
                         #print("Parsed:\n\r\t", field_parser.named)
@@ -219,7 +212,6 @@ class Sqlite(BaseDriver):
 class Postgres(BaseDriver):
 
     def __init__(self, dbname="dorm", user="postgres", host="0.0.0.0", password="docker"):
-        import psycopg2 as postgres
         # connect to the postgres database inside the docker
         # if this was in the docker and in the same net
         # this would not be an issue
@@ -231,8 +223,13 @@ class Postgres(BaseDriver):
             port – connection port number (defaults to 5432 if not provided)
             adap = postgres.connect(dbname="postgres", user="docker", host="172.21.0.2", password="docker")
         """
-        self.conn = postgres.connect(dbname=dbname, host=host, user="docker", password=password)
+        self.connect(dbname, host, user, password)
         super(Postgres, self).__init__(conn=self.conn)
+
+    def connect(self, dbname, host, user, password):
+        import psycopg2 as postgres
+        self.conn = postgres.connect(dbname=dbname, host=host, user="docker", password=password)
+        return self.conn
 
     def discover(self):
         """ Creates model structure from database tables
