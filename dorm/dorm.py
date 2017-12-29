@@ -158,8 +158,10 @@ class DORM(object):
         d.find("User").select('name').all()
     """
 
-    _node_store = {}
     dockerclient = docker.from_env()
+    def __init__(self):
+        self._node_store = {}
+
     def cast(self, iterable):
         x = []
         for i, data in enumerate(iterable):
@@ -169,6 +171,7 @@ class DORM(object):
         return x
 
     def discover(self):
+        self._node_store = {}
         dorm_net = self.dockerclient.networks.get("dorm_net").containers
         amount = len(dorm_net)
         for i, x in enumerate(dorm_net):
