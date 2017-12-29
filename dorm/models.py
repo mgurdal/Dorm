@@ -72,7 +72,7 @@ class Field(Descriptor):
             field_cls.name = field['name']
             return field_cls
         else:
-            field_cls = FIELD_MAP[field['type']]()
+            field_cls = FIELD_MAP[field['type'].upper()]()
             field_cls.name = field['name']
             return field_cls
 
@@ -231,7 +231,7 @@ FIELD_MAP = {
     'LINESTRING': Varchar,
     'MULTIPOLYGON': Varchar,
     'BLOB': Varchar,
-    'Character': Character,
+    'CHARACTER': Character,
 
 }
 

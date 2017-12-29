@@ -3,6 +3,7 @@ from datetime import datetime
 #from pprint import pprint as print
 # from .conf import NODES
 from itertools import chain
+import docker
 
 class Node(object):
     """
@@ -35,12 +36,13 @@ class Node(object):
         assert hasattr(self, 'driver'), 'Node does not have a driver'
         model_structures = self.driver.discover()
         ms = []
+        print("Str", model_structures)
         for model_s in model_structures:
             # can be dynamic (using from dict or smt.)
             fs = [models.Field.from_dict(x, registery=self._models) for x in model_s['columns']]
             mod = models.model_meta(model_s['table_name'].title(), (models.Model,), {f.name:f for f in fs})
             # handle relation in here via fields referance info
-
+            print(model_s['table_name'])
             mod._node = self
             mod._shape = model_s
             ms.append(mod)
@@ -152,6 +154,19 @@ class DORM(object):
     """
 
     _node_store = {}
+    dockerclient = docker.from_env()
+
+    def discoverNodes(self):
+        dorm_net = self.dockerclient.networks.get("dorm_net")
+        for x in dorm_net.containers:
+            host = x.attrs['NetworkSettings']['Networks']['dorm_net']['IPAddress'],
+            container_id = hash(x.short_id)
+
+            new_node = Node(_id=container_id, ip=host, name="dorm", type_="postgres", replica=False)
+            new_node.collect_models()
+            self._node_store[container_id] = new_node
+            print("Found", container_id)
+
 
     def add_node(self, n):
         # n.save_node(self._ext_table)
@@ -159,10 +174,16 @@ class DORM(object):
         self._node_store[n._id] = n
 
     @property
+    def first(self):
+        return list(self._node_store.values())[0]
+
+    @property
+    def models(self):
+        return list(d._node_store.values())[0]
+
+    @property
     def models(self):
         for name, node in self._node_store.items():
-            print()
-            print(name)
             for model in node._model_store:
                 print("\t", model['table_name'])
 
@@ -201,13 +222,26 @@ class DORM(object):
         # collect & merge - done
         return mq # node collection
 
-    def add_model(self, m, to_node):
+
+    def add(self, m, to_node=None):
         # where to put
         # find nodes that contains related tables
         # health_check
         # size check
         # create table
-        pass
+        for n_name, node in self._node_store.items():
+            print("Adding to", n_name)
+            node.add_model(m)
+
+    def save(self, m, to_node=None):
+        # where to put
+        # find nodes that contains related tables
+        # health_check
+        # size check
+        # create table
+        for n_name, node in self._node_store.items():
+            print("Saving to", n_name)
+            node.save_model(m)
 
     def health_check(self):
         pass
@@ -221,11 +255,30 @@ class DORM(object):
     def clone_model(self, model, from_node, to_node):
         pass
 
-    def create_node(self, container_id, ip="0.0.0.0", name="node_1", type_='postgres', replica=False):
+    def create_node(self):
         # spin a docker container
-        new_node = Node(_id=container_id, ip=ip, name="dorm", type_=type_, replica=replica)
-        self.add_node(new_node)
-        return new_node
+        container = self.dockerclient.containers.run('dorm_postgres', network_mode="dorm_net", detach=True)
+        print(container.status)
+        import time
+        new_node = None
+        for cont in self.dockerclient.networks.get('dorm_net').containers:
+            if cont.short_id == container.short_id:
+                _id = hash(cont.short_id)
+                ip = cont.attrs['NetworkSettings']['Networks']['dorm_net']['IPAddress']
+                while 1:
+                    try:
+                        Node(_id=_id, ip=ip, name="dorm", type_="postgres", replica=False)
+                        break
+                    except:
+                        time.sleep(1)
+                new_node = Node(_id=_id, ip=ip, name="dorm", type_="postgres", replica=False)
+
+                if new_node:
+                    new_node.collect_models()
+                    self.add_node(new_node)
+                    return new_node
+        else:
+            raise Exception("Could not create!")
 
 if __name__ == '__main__':
     import sys, os
