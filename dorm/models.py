@@ -78,7 +78,6 @@ class Field(Descriptor):
 
 class Integer(Field):
     ty = 'INTEGER'
-    size = 11
     def _format(self, data):
         """sql query format of data"""
         return str(int(data))

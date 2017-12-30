@@ -20,43 +20,46 @@ class Node(object):
         'generates' models
     """
 
-    def __init__(self, _id, ip, name='dorm', port=1307, type_='postgres', replica=False):
-        self._id = _id
+    def __init__(self, id, ip, name="dorm", user='docker', port=1307, type_='postgres', replica=False):
+        self.id = id
         self.name = name
+        self.user = user
         self.type_ = type_
         self.replica = replica
         self.ip = ip
         self.port = port
+        self.created = datetime.now().strftime("%d/%m/%y")
 
-        self._models = {}
-        self._model_store = []
+        self.models = []
+        self.model_store = []
         if type_ == 'sqlite':
             from .drivers import Sqlite
-            self.driver = Sqlite(dbname="sqlite", user="docker", host=ip, password="docker")
+            self.driver = Sqlite(dbname="sqlite", user=user, host=ip, password="docker")
 
         elif type_ == 'postgres':
             from .drivers import Postgres
-            self.driver = Postgres(dbname=name, host=ip, user="docker", password="docker")
+            self.driver = Postgres(dbname="dorm", host=ip, user=user, password="docker")
 
-    def collect_models(self):
+    def collectmodels(self):
         assert hasattr(self, 'driver'), 'Node does not have a driver'
         model_structures = self.driver.discover()
         ms = []
         for model_s in model_structures:
-            fs = [models.Field.from_dict(x, registery=self._models) for x in model_s['columns']]
+            fs = [models.Field.from_dict(x, registery=self.models) for x in model_s['columns']]
             mod = models.model_meta(model_s['table_name'].title(), (models.Model,), {f.name:f for f in fs})
             # handle relation in here via fields referance info
             # print(model_s['table_name'])
             mod._node = self
             mod._shape = model_s
             ms.append(mod)
-            self._models[mod.__name__] = mod
-            self._model_store.append(model_s)
+            self.models.append(mod)
+            self.model_store.append(model_s)
 
-        for model_name, model in self._models.items():
+        for model in self.models:
+            model_name = model.__class__.__name__
             for name, field in model.__fields__.items():
-                if type(field) is models.ForeignKey and (len(field.to_table.__fields__) != len(self._models[field.to_table.__name__].__fields__)):
-                    self._models[model_name].__fields__.update({name:models.ForeignKey(self._models[field.to_table.__name__])})
+                if type(field) is models.ForeignKey and (len(field.to_table.__fields__) != len(self.model[field.to_table.__name__].__fields__)):
+                    self.models[model_name].__fields__.update({name:models.ForeignKey(self.models[field.to_table.__name__])})
         return ms
 
     def add_model(self, *models):
@@ -129,7 +132,7 @@ class ModelQuery(dict):
 
     #_nodes = []
     def __init__(self):
-        self._models = {}
+        self.models = []
         self._queries = []
 
     def select(cls, *args, **kwargs):
@@ -137,7 +140,7 @@ class ModelQuery(dict):
             Cool loading
             Async
         """
-        cls._queries = [model.select(*args, **kwargs) for _, model in cls._models.items()]
+        cls._queries = [model.select(*args, **kwargs) for model in cls.models]
         return cls
 
     def where(cls, **kwargs):
@@ -163,7 +166,7 @@ class DORM(object):
     """
 
     dockerclient = docker.from_env()
-    _node_store = {}
+    _node_store =  []
 
     def cast(self, iterable):
         x = []
@@ -174,43 +177,40 @@ class DORM(object):
         return x
 
     def discover(self):
-        self._node_store = {}
+        self._node_store = []
         dorm_net = self.dockerclient.networks.get("dorm_net").containers
         amount = len(dorm_net)
         for i, x in enumerate(dorm_net):
             host = x.attrs['NetworkSettings']['Networks']['dorm_net']['IPAddress'],
-            container_id = hash(x.short_id)
-            if container_id in self._node_store:
-                print("Already exists", container_id)
-                continue
-            new_node = Node(_id=container_id, ip=host[0], name="dorm", type_="postgres", replica=False) # rep test
-            new_node.collect_models()
-            self._node_store[container_id] = new_node
+            container_id = x.short_id
+            for node in self._node_store:
+                if node.id == container_id:
+                    print("Already exists", node)
+                    continue
+            new_node = Node(id=container_id, ip=host[0], name=x.name, type_="postgres", replica=False) # rep test
+            new_node.collectmodels()
+            self._node_store.append(new_node)
             progress("Node [{}]".format(host[0]), i, amount, "")
         print()
 
     def add_node(self, n):
         # n.save_node(self._ext_table)
-        #n.collect_models()
-        self._node_store[n._id] = n
+        #n.collectmodels()
+        self._node_store.append(n)
 
     @property
     def first(self):
-        return list(self._node_store.values())[0]
+        return self._node_store[0]
 
     @property
     def models(self):
-        return list(d._node_store.values())[0]
-
-    @property
-    def models(self):
-        for name, node in self._node_store.items():
-            for model in node._model_store:
+        for node in self._node_store:
+            for model in node.model_store:
                 print("\t", model['table_name'])
 
-    def collect_models(self):
-        for key, node in self._node_store.items():
-            node.collect_models()
+    def collectmodels(self):
+        for node in self._node_store:
+            node.collectmodels()
 
     # @classmethod
     def find(self, target_model):
@@ -229,14 +229,14 @@ class DORM(object):
         # can be changed with SelectQuery
         mq = ModelQuery()
         count = 0
-        for n_name, node in self._node_store.items():
+        for node in self._node_store:
             if not node.replica:
-                for m_name, model in node._models.items():
-                    if m_name == target_model:
+                for model in node.model:
+                    if model.__class__.__name__ == target_model:
                         count += 1
                         progress("Node", count, count, "")
                         # might need to change to id or auto assigned name
-                        mq._models[m_name] = model
+                        mq.models.append(model)
         print()
         # reduce node store - done
         # find model - done
@@ -251,7 +251,7 @@ class DORM(object):
         # health_check
         # size check
         # create table
-        for n_name, node in self._node_store.items():
+        for node in self._node_store:
             print("Adding to", node.ip)
             node.add_model(m)
 
@@ -261,15 +261,15 @@ class DORM(object):
         # health_check
         # size check
         # create table
-        for n_name, node in self._node_store.items():
-            if m.__class__.__name__ in node._models:
+        for node in self._node_store:
+            if m.__class__.__name__ in node.models:
                 print("Saving to", node.ip)
                 node.save_model(m)
             else:
                 print("Not found in", node.ip)
 
     def rollback_all(self):
-        for _, n in self._node_store.items():
+        for n in self._node_store:
             n.driver.rollback()
 
     def health_check(self):
@@ -292,18 +292,18 @@ class DORM(object):
         new_node = None
         for cont in self.dockerclient.networks.get('dorm_net').containers:
             if cont.short_id == container.short_id:
-                _id = hash(cont.short_id)
+                _id = cont.short_id
                 ip = cont.attrs['NetworkSettings']['Networks']['dorm_net']['IPAddress']
                 while 1:
                     try:
-                        Node(_id=_id, ip=ip, name="dorm", type_="postgres", replica=replica)
+                        Node(id=_id, ip=ip, name="dorm", type_="postgres", replica=replica)
                         break
                     except Exception as e:
                         time.sleep(1)
-                new_node = Node(_id=_id, ip=ip, name="dorm", type_="postgres", replica=replica)
+                new_node = Node(id=_id, ip=ip, name="dorm", type_="postgres", replica=replica)
 
                 if new_node:
-                    new_node.collect_models()
+                    new_node.collectmodels()
                     self.add_node(new_node)
                     return new_node
         else:

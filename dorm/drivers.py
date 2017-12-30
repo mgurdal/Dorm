@@ -18,13 +18,14 @@ class BaseDriver(object):
         # Bug in here, foreign key does not work properly
         # new Model class does not fields yet
         create_sql = ', '.join(field._sql(name) for name, field in model.__fields__.items())
-
+        cs = ""
         try:
-            cs = 'create table if not exists {0} ({1});'.format(
+            cs = 'create table if not exists {0}({1});'.format(
                 tablename, create_sql)
+
             self.execute(cs, commit=True)
         except Exception as e:
-            print(e, create_sql)
+            print(e, cs)
 
         if tablename not in self.__tables__.keys():
             self.__tables__[tablename] = model
@@ -131,7 +132,7 @@ class BaseDriver(object):
 class Sqlite(BaseDriver):
     def __init__(self, **conf):
         import sqlite3
-        self.conn = sqlite3.connect(database=conf['name'],
+        self.conn = sqlite3.connect(database=conf['user'],
                                     detect_types=sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES
                                     )
         super(Sqlite, self).__init__(conn=self.conn)
@@ -228,7 +229,7 @@ class Postgres(BaseDriver):
 
     def connect(self, dbname, host, user, password):
         import psycopg2 as postgres
-        self.conn = postgres.connect(dbname=dbname, host=host, user="docker", password=password)
+        self.conn = postgres.connect(dbname=dbname, host=host, user=user, password=password)
         return self.conn
 
     def discover(self):
