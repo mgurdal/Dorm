@@ -128,8 +128,9 @@ class ModelQuery(dict):
     """
 
     #_nodes = []
-    _models = {}
-    _queries = []
+    def __init__(self):
+        self._models = {}
+        self._queries = []
 
     def select(cls, *args, **kwargs):
         """ Lazy select
@@ -146,6 +147,9 @@ class ModelQuery(dict):
     def all(self):
         return chain(*[sq.all() for sq in self._queries])
 
+    def df(self):
+        import pandas
+        return pandas.DataFrame.from_records(self.all())
 
 class DORM(object):
     """
@@ -159,8 +163,7 @@ class DORM(object):
     """
 
     dockerclient = docker.from_env()
-    def __init__(self):
-        self._node_store = {}
+    _node_store = {}
 
     def cast(self, iterable):
         x = []
@@ -209,7 +212,7 @@ class DORM(object):
         for key, node in self._node_store.items():
             node.collect_models()
 
-    @classmethod
+    # @classmethod
     def find(self, target_model):
         """
         # does it fight with other nodes
