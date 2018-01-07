@@ -40,7 +40,6 @@ class SelectQuery(object):
 
     def where(self, *args, **kwargs):
         where_list = []
-
         for k in kwargs:
             assert k in self.model.__fields__, "Invalid attribute!"
 
@@ -48,7 +47,7 @@ class SelectQuery(object):
             assert k in self.model.__fields__, "Invalid attribute!"
 
         for k, v in kwargs.items():
-            where_list.append('{0}="{1}"'.format(k, str(v)))
+            where_list.append('{0}={1}'.format(k, v))
 
         where_list.extend(args)
 
@@ -141,20 +140,20 @@ class SelectQuery(object):
             self.base_sql.rstrip(';'), pattern)
         return self
 
-    def as_df(self):
-        import pandas as pd
-        """Turns sql query result into pandas dataframe"""
-        df = pd.read_sql(self.sql, self.databases[0].conn)
-        df['database'] = self.databases[0].database
-
-        for new_frame in self.databases[1:]:
-            new_piece = pd.read_sql(self.sql, new_frame.conn)
-            new_piece['database'] = new_frame.database
-            df = df.append(new_piece, ignore_index=True)
-
-        df.set_index(df['id'])
-        del df['id']
-        return df
+        # def as_df(self):
+        #     import pandas as pd
+        #     """Turns sql query result into pandas dataframe"""
+        #     df = pd.read_sql(self.sql, self.databases[0].conn)
+        #     df['database'] = self.databases[0].database
+        #
+        #     for new_frame in self.databases[1:]:
+        #         new_piece = pd.read_sql(self.sql, new_frame.conn)
+        #         new_piece['database'] = new_frame.database
+        #         df = df.append(new_piece, ignore_index=True)
+        #
+        #     df.set_index(df['id'])
+        #     del df['id']
+        #     return df
 
         """def as_ddf(self):
         Turns pandas dataframe into dask dataframe
@@ -164,7 +163,7 @@ class SelectQuery(object):
     # hard to test, needs refactor
     def _execute(self, sql, datatype=dict, batch_size=None, verbose=False):
         cursors = []
-
+        print(sql)
         for db in self.databases:
             cursor = db.execute(sql)
             if not cursor:
@@ -180,16 +179,27 @@ class SelectQuery(object):
                         next_batch = cursor.fetchmany(batch_size)
                 else:
                     yield cursor.fetchall()
+
             # fetch data with cunks
             records = cursor.fetchall()  # if not batch_size else cursor.fetchmany(batch_size)
+
             for record in records:  # get_cursor(batch_size):
                 #model = None
                 if not datatype:
                     # refactor this
-                    model = self.model.__class__(**dict(zip(description, record)))
+                    model_s = dict(zip(description, record))
+                    # fetch related rows as well
+                    model = self.model.__class__(**model_s)
                     yield model
+
                 elif datatype == dict:
                     model = dict(zip(description, record))
+                    # fetch foreigns
+                    for f in self.model.__relations__:
+                        field_arg = {}
+                        field_arg["id"]=model['id']
+                        fs = list(f.to_table.select(nodes=[self.model._node]).where(**field_arg).all())
+                        model[f.name] = fs
                     yield model
                 else:
                     raise Exception("Unsupported result type")

@@ -62,13 +62,13 @@ class Field(Descriptor):
             field_cls.name = field['name']
             return field_cls
         elif field['extras']['fk'] is True:
-            related_table = field['related_table']
+            related_table = field['extras']['related_table']
             # check model registery
-            if related_table['table_name'] in registery.keys():
+            if related_table['table_name'] in registery:
                 field_cls = ForeignKey(registery[related_table['table_name']], related_table['field_name'])
             else:
                 # print("Model '{}' not found in node registery creating a dummy one.".format(related_table['table_name']))
-                field_cls = ForeignKey(model_meta(related_table['table_name'], (Model,), {}), related_table['field_name'])
+                field_cls = ForeignKey(model_meta(related_table['table_name'].title(), (Model,), {}), related_table['field_name'])
             field_cls.name = field['name']
             return field_cls
         else:
@@ -132,7 +132,7 @@ class Real(Field):
     def _format(self, data):
         """sql query format of data"""
         return "'{0}'".format(str(data))
-
+#
 class Datetime(Field):
     ty = 'DATETIME'
 
@@ -145,7 +145,7 @@ class Datetime(Field):
 
 
 class Date(Field):
-    ty = 'DATETIME'
+    ty = 'DATE'
 
     def _format(self, data):
         return "'{0}'".format(str(data))
@@ -219,6 +219,7 @@ class ManyToMany(object):
 
 FIELD_MAP = {
     'INTEGER': Integer,
+    'REAL': Integer,
     'DOUBLE': Float,
     'CHAR': Char,
     'VARCHAR': Varchar,
@@ -252,11 +253,12 @@ class model_meta(type):
         sign = make_signature(fields)
         setattr(clsobj, "__signature__", sign)
         setattr(clsobj, '__fields__', fields)
-
+        setattr(clsobj, '__relations__', [ f for _, f in fields.items() if type(f) is ForeignKey ])
         # assign referance for relational fields
         for name, field in fields.items():
             if type(field) is ForeignKey:
                 setattr(field.to_table, clsname.lower()+"s", clsobj)
+
 
         return clsobj
 
@@ -289,10 +291,6 @@ def make_signature(fields):
 
 class Model(metaclass=model_meta):
     def __init__(self, *args, **kwargs):
-        if 'id' not in kwargs:
-            # auto incremented
-            kwargs.update({'id':id(self)})
-
         for key, value in kwargs.items():
             setattr(self, key, value)
 
@@ -303,6 +301,14 @@ class Model(metaclass=model_meta):
     @classmethod
     def all(self):
         return SelectQuery(model=self).all()
+
+    @classmethod
+    def instance(cls):
+        return "{} = {}({})".format(cls.__name__.lower(), cls.__name__, ", ".join("{}='value'".format(x) for x in cls.__fields__))
+
+    # @property
+    # def fields(self):
+    #     return {k, v.__class__ for k, v in self.__fields__.items()}
 
     @classmethod
     def select(self, *args, nodes=set(), **kwargs):

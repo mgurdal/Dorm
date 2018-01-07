@@ -22,7 +22,7 @@ class BaseDriver(object):
         try:
             cs = 'create table if not exists {0}({1});'.format(
                 tablename, create_sql)
-
+            print(cs)
             self.execute(cs, commit=True)
         except Exception as e:
             print(e, cs)
@@ -311,8 +311,10 @@ class Postgres(BaseDriver):
                           nc['extras'].update(
                              fk=True,
                              pk=False,
-                             related_field=col['column_name'].split("_")[1],
-                             related_table=col['column_name'].split("_")[0]
+                             related_table={
+                             "table_name": col['column_name'].split("_")[0],
+                             "field_name": col['column_name'].split("_")[1]
+                             }
                           )
 
                     table['columns'].append(nc)

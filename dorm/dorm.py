@@ -55,11 +55,14 @@ class Node(object):
             self.models.append(mod)
             self.model_store.append(model_s)
 
-        for model in self.models:
-            model_name = model.__class__.__name__
-            for name, field in model.__fields__.items():
-                if type(field) is models.ForeignKey and (len(field.to_table.__fields__) != len(self.model[field.to_table.__name__].__fields__)):
-                    self.models[model_name].__fields__.update({name:models.ForeignKey(self.models[field.to_table.__name__])})
+        # for model in self.models:
+        #     model_name = model.__class__.__name__
+        #     for name, field in model.__fields__.items():
+        #         print(self.model_store)
+        #         if type(field) is models.ForeignKey and (len(field.to_table.__fields__) != len(
+        #         [model[field.to_table.__name__].__fields__ for model in ][0])
+        #         ):
+        #             self.models[model_name].__fields__.update({name:models.ForeignKey(self.models[field.to_table.__name__])})
         return ms
 
     def add_model(self, *models):
@@ -135,17 +138,17 @@ class ModelQuery(dict):
         self.models = []
         self._queries = []
 
-    def select(cls, *args, **kwargs):
+    def select(self, *args, **kwargs):
         """ Lazy select
             Cool loading
             Async
         """
-        cls._queries = [model.select(*args, **kwargs) for model in cls.models]
-        return cls
+        self._queries = [model.select(*args, **kwargs) for model in self.models]
+        return self
 
-    def where(cls, **kwargs):
-        cls._queries = [query.where(**kwargs) for query in cls._queries]
-        return cls
+    def where(self, **kwargs):
+        self._queries = [query.where(**kwargs) for query in self._queries]
+        return self
 
     def all(self):
         return chain(*[sq.all() for sq in self._queries])
@@ -176,6 +179,13 @@ class DORM(object):
         print()
         return x
 
+    def get(self, model_name):
+        for model in self.models:
+            if model.__name__ == model_name:
+                return model
+
+            else:
+                print(model.__name__ , model_name)
     def discover(self):
         self._node_store = []
         dorm_net = self.dockerclient.networks.get("dorm_net").containers
@@ -205,8 +215,8 @@ class DORM(object):
     @property
     def models(self):
         for node in self._node_store:
-            for model in node.model_store:
-                print("\t", model['table_name'])
+            for model in node.models:
+                yield model
 
     def collectmodels(self):
         for node in self._node_store:
@@ -231,12 +241,14 @@ class DORM(object):
         count = 0
         for node in self._node_store:
             if not node.replica:
-                for model in node.model:
-                    if model.__class__.__name__ == target_model:
+                for model in node.models:
+                    if model.__name__ == target_model:
                         count += 1
                         progress("Node", count, count, "")
                         # might need to change to id or auto assigned name
                         mq.models.append(model)
+                    else:
+                        print(model.__name__, target_model)
         print()
         # reduce node store - done
         # find model - done
@@ -262,7 +274,7 @@ class DORM(object):
         # size check
         # create table
         for node in self._node_store:
-            if m.__class__.__name__ in node.models:
+            if m.__class__.__name__ in [m.__name__ for m in node.models]:
                 print("Saving to", node.ip)
                 node.save_model(m)
             else:

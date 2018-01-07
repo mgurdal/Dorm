@@ -13,5 +13,4 @@ from models import City
 
 if __name__ == '__main__':
     d = DORM()
-    # client = docker.from_env()
-    ns = []
+    d.discover()
