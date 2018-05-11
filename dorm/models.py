@@ -7,7 +7,7 @@ import re
 from inspect import Signature, Parameter
 from collections import OrderedDict
 
-from .queries import *
+from queries import *
 
 
 """
@@ -81,7 +81,6 @@ class Integer(Field):
     def _format(self, data):
         """sql query format of data"""
         return str(int(data))
-
 
 class String(Field):
     ty = 'TEXT'

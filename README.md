@@ -10,6 +10,12 @@ docker network create dorm_net
 sudo docker run --network dorm_net dorm_postgres
 ```
 
+## create dorm master instance
+```
+docker run -it -v /var/run/docker.sock:/var/run/docker.sock dorm_master bash
+```
+
+
 ## select q
 ```
 # coding: utf-8

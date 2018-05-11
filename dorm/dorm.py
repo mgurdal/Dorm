@@ -1,4 +1,4 @@
-from . import models
+import models
 from datetime import datetime
 #from pprint import pprint as print
 # from .conf import NODES
@@ -33,11 +33,11 @@ class Node(object):
         self.models = []
         self.model_store = []
         if type_ == 'sqlite':
-            from .drivers import Sqlite
+            from drivers import Sqlite
             self.driver = Sqlite(dbname="sqlite", user=user, host=ip, password="docker")
 
         elif type_ == 'postgres':
-            from .drivers import Postgres
+            from drivers import Postgres
             self.driver = Postgres(dbname="dorm", host=ip, user=user, password="docker")
 
     def collectmodels(self):
@@ -133,27 +133,26 @@ class ModelQuery(dict):
         also supports model queries with class methods
     """
 
-    #_nodes = []
     def __init__(self):
         self.models = []
         self._queries = []
 
     def select(self, *args, **kwargs):
-        """ Lazy select
-            Cool loading
-            Async
-        """
+        """ Lazy select """
         self._queries = [model.select(*args, **kwargs) for model in self.models]
         return self
 
     def where(self, **kwargs):
+        """ Lazy filter """
         self._queries = [query.where(**kwargs) for query in self._queries]
         return self
 
     def all(self):
+        """ Lazy fetch """
         return chain(*[sq.all() for sq in self._queries])
 
-    def df(self):
+    def as_df(self):
+        """ Cool feature """
         import pandas
         return pandas.DataFrame.from_records(self.all())
 

@@ -1,11 +1,12 @@
-FROM python:3.5
-RUN mkdir /Dorm
-COPY ./requirements.txt /Dorm/
-WORKDIR /Dorm
-RUN pip install -r requirements.txt
-COPY ./dorm /Dorm/dorm
-COPY ./service.py /Dorm/
-COPY ./app.py /Dorm/
-EXPOSE 1307
-# CMD ["/usr/lib/postgresql/9.3/bin/postgres", "-D", "/var/lib/postgresql/9.3/main", "-c", "config_file=/etc/postgresql/9.3/main/postgresql.conf"]
-CMD ["ipython", "-i", "app.py"]
+FROM python:3.6
+RUN set -ex && python3.6 -m pip install pipenv --upgrade
+RUN set -ex && mkdir /dorm
+WORKDIR /dorm
+
+COPY ./dorm /dorm
+COPY ./Pipfile /dorm
+RUN pipenv --three
+RUN set -ex && pipenv install --skip-lock
+CMD ["pipenv", "run", "python3", "-i", "app.py"]
+# start command
+# docker run -it --network dorm_net -v /var/run/docker.sock:/var/run/docker.sock dorm_master

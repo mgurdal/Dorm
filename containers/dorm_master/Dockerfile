@@ -7,7 +7,6 @@ COPY ./dorm /dorm
 COPY ./Pipfile /dorm
 RUN pipenv --three
 RUN set -ex && pipenv install --skip-lock
-
-CMD ["python3"]
+CMD ["pipenv", "run", "python3"]
 # start command
 # docker run -it --network dorm_net -v /var/run/docker.sock:/var/run/docker.sock dorm_master

@@ -1,15 +1,11 @@
 from dorm import models
 
-class City(models.Model):
+class User(models.Model): # payments
     id = models.PrimaryKey()
-    city = models.Character(not_null=True, size=80)
-    location = models.Point(not_null=True)
+    city = models.Varchar()
 
 
-class Weather(models.Model):
+class Payment(models.Model):
     id = models.PrimaryKey()
-    city_id = models.ForeignKey(City)
-    prcp = models.Real(not_null=True)
-    date = models.Date(not_null=True)
-    temp_hi = models.Integer(not_null=True)
-    temp_lo = models.Integer(not_null=True)
+    user =  models.ForeignKey(User)
+    amount = models.Integer(User)

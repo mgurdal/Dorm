@@ -1,7 +1,6 @@
 import docker
 
 from dorm.dorm import DORM
-from models import City
 # def discoverNodes(client):
 #     dorm_net = client.networks.get("dorm_net")
 #     nets = [ {
@@ -13,4 +12,4 @@ from models import City
 
 if __name__ == '__main__':
     d = DORM()
-    d.discover()
+    print("importing DORM as d")

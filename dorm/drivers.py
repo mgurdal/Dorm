@@ -1,5 +1,5 @@
 
-from .models import ManyToMany, Model, model_meta
+from models import ManyToMany, Model, model_meta
 from parse import parse
 from pprint import pprint
 
@@ -121,7 +121,7 @@ class BaseDriver(object):
     def execute(self, sql, commit=True):
         try:
             cursor = self.conn.cursor()
-            cursor.execute(sql)
+            c   ursor.execute(sql)
             if commit:
                 self.commit()
             return cursor
